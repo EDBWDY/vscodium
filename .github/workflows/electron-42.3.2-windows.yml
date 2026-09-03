@@ -28,6 +28,7 @@ jobs:
       SHOULD_BUILD_REH_WEB: 'no'
       VSCODE_ARCH: x64
       VSCODE_QUALITY: stable
+      VSCODIUM_LATEST_UPSTREAM: 'yes'
 
     steps:
       - uses: actions/checkout@v4

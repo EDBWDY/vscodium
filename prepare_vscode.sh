@@ -147,6 +147,12 @@ if [[ "${DISABLE_UPDATE}" == "yes" ]]; then
   mv ../patches/00-update-disable.patch.yet ../patches/00-update-disable.patch
 fi
 
+if [[ "${VSCODIUM_LATEST_UPSTREAM}" == "yes" ]]; then
+  # The VSCodium patch set is revision-specific.  For a newer VS Code base,
+  # retain the product assets above and apply only the independently verified
+  # Electron pin instead of silently accepting stale source rewrites.
+  apply_patch ../patches/00-build-update-electron-42.3.2.patch
+else
 for file in ../patches/*.json; do
   if [[ -f "${file}" ]]; then
     apply_actions "${file}"
@@ -180,6 +186,7 @@ for file in ../patches/user/*.patch; do
 		apply_patch "${file}"
 	fi
 done
+fi
 
 # The Electron version is pinned by patches/00-build-update-electron-42.3.2.patch.
 # Keep VS Code's asset verification list in lockstep with that exact release.
