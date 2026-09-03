@@ -36,7 +36,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          # VS Code 1.136.0 requires Node.js 24.18.0; VSCodium's checked-in
+          # .nvmrc belongs to its older 1.126.0 base.
+          node-version: '24.18.0'
 
       - name: Setup Python
         uses: actions/setup-python@v5
