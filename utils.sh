@@ -33,8 +33,9 @@ apply_actions() {
               exit 4
             fi
           else
-            echo "Not found: ${ENTRY_PATH}" >&2
-            exit 4
+            # VSCodium action lists span several upstream VS Code revisions.
+            # A file already removed upstream needs no further action.
+            echo "Skipped absent path: ${ENTRY_PATH}"
           fi
         done
       ;;
