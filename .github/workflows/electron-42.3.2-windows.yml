@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build:
@@ -36,8 +37,6 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          # VS Code 1.136.0 requires Node.js 24.18.0; VSCodium's checked-in
-          # .nvmrc belongs to its older 1.126.0 base.
           node-version: '24.18.0'
 
       - name: Setup Python
@@ -48,11 +47,26 @@ jobs:
       - name: Fetch pinned VS Code source
         run: ./get_repo.sh
 
-      - name: Build with Electron 42.3.2
+      - name: Prepare VS Code sources for installer tasks
         run: |
-          # Match the SDK visibility used by VS Code's official Windows CI.
-          export PATH="/c/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64:$PATH"
-          ./build.sh
+          . ./version.sh
+          . ./prepare_vscode.sh
+
+      - name: Reuse known-good portable build from run 15
+        uses: actions/download-artifact@v4
+        with:
+          name: VSCodium-win32-x64-electron-42.3.2
+          path: VSCode-win32-x64
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 33760861645
+
+      - name: Verify reused portable build
+        run: |
+          test -d VSCode-win32-x64/resources/app
+          test -f VSCode-win32-x64/resources/app/product.json
+          echo "Portable build restored successfully"
+          ls -la VSCode-win32-x64 | head -100
 
       - name: Build Windows installers
         run: |
@@ -65,14 +79,6 @@ jobs:
           export SHOULD_BUILD_MSI=no
           export SHOULD_BUILD_MSI_NOUP=no
           ./prepare_assets.sh
-
-      - name: Upload portable Windows build
-        uses: actions/upload-artifact@v4
-        with:
-          name: VSCodium-win32-x64-electron-42.3.2
-          path: VSCode-win32-x64/
-          if-no-files-found: error
-          retention-days: 14
 
       - name: Upload Windows installers
         uses: actions/upload-artifact@v4

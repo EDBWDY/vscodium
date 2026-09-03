@@ -1,29 +1,37 @@
 #!/usr/bin/env bash
 
+set -ex
+
 cd vscode || { echo "'vscode' dir not found"; exit 1; }
 
+echo "==> installer stage: inno updater"
 npm run gulp "vscode-win32-${VSCODE_ARCH}-inno-updater"
 
 # . ../build/windows/appx/build.sh
 
 if [[ "${SHOULD_BUILD_ZIP}" != "no" ]]; then
+  echo "==> installer stage: portable zip"
   7z.exe a -tzip "../assets/${APP_NAME}-win32-${VSCODE_ARCH}-${RELEASE_VERSION}.zip" -x!CodeSignSummary*.md -x!tools "../VSCode-win32-${VSCODE_ARCH}/*" -r
 fi
 
 if [[ "${SHOULD_BUILD_EXE_SYS}" != "no" ]]; then
+  echo "==> installer stage: system setup"
   npm run gulp "vscode-win32-${VSCODE_ARCH}-system-setup"
 fi
 
 if [[ "${SHOULD_BUILD_EXE_USR}" != "no" ]]; then
+  echo "==> installer stage: user setup"
   npm run gulp "vscode-win32-${VSCODE_ARCH}-user-setup"
 fi
 
 if [[ "${VSCODE_ARCH}" == "ia32" || "${VSCODE_ARCH}" == "x64" ]]; then
   if [[ "${SHOULD_BUILD_MSI}" != "no" ]]; then
+    echo "==> installer stage: MSI"
     . ../build/windows/msi/build.sh
   fi
 
   if [[ "${SHOULD_BUILD_MSI_NOUP}" != "no" ]]; then
+    echo "==> installer stage: MSI updates-disabled"
     . ../build/windows/msi/build-updates-disabled.sh
   fi
 fi
