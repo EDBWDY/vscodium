@@ -65,6 +65,7 @@ jobs:
         run: |
           test -d VSCode-win32-x64/resources/app
           test -f VSCode-win32-x64/resources/app/product.json
+          test -d VSCode-win32-x64/appx/manifest
           echo "Portable build restored successfully"
           ls -la VSCode-win32-x64 | head -100
 
@@ -74,6 +75,20 @@ jobs:
           echo "RELEASE_VERSION=${RELEASE_VERSION}" >> "$GITHUB_ENV"
           mkdir -p assets
           echo "Packaging release ${RELEASE_VERSION}"
+
+      - name: Download Explorer context menu DLL
+        run: |
+          cd vscode
+          node build/win32/explorer-dll-fetcher.ts ../VSCode-win32-${VSCODE_ARCH}/appx
+          cd ..
+          test -f "VSCode-win32-${VSCODE_ARCH}/appx/code_explorer_command_${VSCODE_ARCH}.dll"
+
+      - name: Pack Windows context menu APPX
+        run: |
+          export PATH="/c/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64:$PATH"
+          powershell "makeappx pack /d .\\VSCode-win32-${VSCODE_ARCH}\\appx\\manifest /p .\\VSCode-win32-${VSCODE_ARCH}\\appx\\code_${VSCODE_ARCH}.appx /nv"
+          rm -rf "VSCode-win32-${VSCODE_ARCH}/appx/manifest"
+          test -f "VSCode-win32-${VSCODE_ARCH}/appx/code_${VSCODE_ARCH}.appx"
 
       - name: Prepare Inno updater
         run: |
