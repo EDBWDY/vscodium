@@ -68,17 +68,42 @@ jobs:
           echo "Portable build restored successfully"
           ls -la VSCode-win32-x64 | head -100
 
-      - name: Build Windows installers
+      - name: Prepare installer metadata
         run: |
           . ./version.sh
-          export RELEASE_VERSION
-          export SHOULD_BUILD_CLI=no
-          export SHOULD_BUILD_EXE_SYS=yes
-          export SHOULD_BUILD_EXE_USR=yes
-          export SHOULD_BUILD_ZIP=yes
-          export SHOULD_BUILD_MSI=no
-          export SHOULD_BUILD_MSI_NOUP=no
-          ./prepare_assets.sh
+          echo "RELEASE_VERSION=${RELEASE_VERSION}" >> "$GITHUB_ENV"
+          mkdir -p assets
+          echo "Packaging release ${RELEASE_VERSION}"
+
+      - name: Prepare Inno updater
+        run: |
+          cd vscode
+          npm run gulp "vscode-win32-${VSCODE_ARCH}-inno-updater"
+
+      - name: Build portable ZIP
+        run: |
+          7z.exe a -tzip "assets/${APP_NAME}-win32-${VSCODE_ARCH}-${RELEASE_VERSION}.zip" -x!CodeSignSummary*.md -x!tools "VSCode-win32-${VSCODE_ARCH}/*" -r
+
+      - name: Build System EXE
+        run: |
+          cd vscode
+          npm run gulp "vscode-win32-${VSCODE_ARCH}-system-setup"
+          cd ..
+          mv "vscode/.build/win32-${VSCODE_ARCH}/system-setup/VSCodeSetup.exe" "assets/${APP_NAME}Setup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
+
+      - name: Build User EXE
+        run: |
+          cd vscode
+          npm run gulp "vscode-win32-${VSCODE_ARCH}-user-setup"
+          cd ..
+          mv "vscode/.build/win32-${VSCODE_ARCH}/user-setup/VSCodeSetup.exe" "assets/${APP_NAME}UserSetup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
+
+      - name: Inspect installer outputs
+        run: |
+          ls -lah assets
+          test -f "assets/${APP_NAME}-win32-${VSCODE_ARCH}-${RELEASE_VERSION}.zip"
+          test -f "assets/${APP_NAME}Setup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
+          test -f "assets/${APP_NAME}UserSetup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
 
       - name: Upload Windows installers
         uses: actions/upload-artifact@v4
