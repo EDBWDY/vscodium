@@ -90,6 +90,40 @@ jobs:
           $env:PATH = "$sdk;$env:PATH"
 
           $appxDir = Join-Path $env:GITHUB_WORKSPACE "VSCode-win32-$env:VSCODE_ARCH\appx"
+          $manifestPath = Join-Path $appxDir "manifest\AppxManifest.xml"
+
+          [xml]$manifest = Get-Content -Raw $manifestPath
+          $originalVersion = [string]$manifest.Package.Identity.Version
+          $versionParts = $originalVersion.Split('.')
+          if ($versionParts.Count -ne 4) {
+            throw "Unexpected APPX manifest version: $originalVersion"
+          }
+
+          $normalizedParts = foreach ($part in $versionParts) {
+            $value = 0
+            if (-not [int]::TryParse($part, [ref]$value)) {
+              throw "Invalid APPX manifest version component '$part' in '$originalVersion'"
+            }
+            if ($value -lt 0 -or $value -gt 65535) {
+              throw "APPX manifest version component '$part' is outside 0..65535"
+            }
+            $value.ToString()
+          }
+
+          $normalizedVersion = $normalizedParts -join '.'
+          $manifest.Package.Identity.Version = $normalizedVersion
+
+          $settings = New-Object System.Xml.XmlWriterSettings
+          $settings.Indent = $true
+          $settings.Encoding = New-Object System.Text.UTF8Encoding($false)
+          $writer = [System.Xml.XmlWriter]::Create($manifestPath, $settings)
+          try {
+            $manifest.Save($writer)
+          } finally {
+            $writer.Dispose()
+          }
+
+          Write-Host "Normalized APPX version: $originalVersion -> $normalizedVersion"
 
           makeappx pack `
             /d "$appxDir\manifest" `
