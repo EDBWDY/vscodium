@@ -152,6 +152,7 @@ if [[ "${VSCODIUM_LATEST_UPSTREAM}" == "yes" ]]; then
   # retain the product assets above and apply only the independently verified
   # Electron pin instead of silently accepting stale source rewrites.
   apply_patch ../patches/00-build-update-electron-42.3.2.patch
+  apply_patch ../patches/01-electron-42-auth-compat.patch
 else
 for file in ../patches/*.json; do
   if [[ -f "${file}" ]]; then

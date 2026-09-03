@@ -1,0 +1,12 @@
+diff --git a/src/vs/platform/native/electron-main/auth.ts b/src/vs/platform/native/electron-main/auth.ts
+--- a/src/vs/platform/native/electron-main/auth.ts
++++ b/src/vs/platform/native/electron-main/auth.ts
+@@ -61,7 +61,8 @@ export class ProxyAuthService extends Disposable implements IProxyAuthService {
+ 	}
+ 
+ 	private registerListeners(): void {
+-		const onLogin = Event.fromNodeEventEmitter<LoginEvent>(app, 'login', (event: ElectronEvent, webContents: WebContents, req: AuthenticationResponseDetails, authInfo: ElectronAuthInfo, callback) => ({ event, webContents, authInfo: { ...authInfo, attempt: req.firstAuthAttempt ? 1 : 2 }, callback } satisfies LoginEvent));
++		const firstAuthAttempt = (req: AuthenticationResponseDetails & { firstAuthAttempt?: boolean }) => req.firstAuthAttempt;
++		const onLogin = Event.fromNodeEventEmitter<LoginEvent>(app, 'login', (event: ElectronEvent, webContents: WebContents, req: AuthenticationResponseDetails, authInfo: ElectronAuthInfo, callback) => ({ event, webContents, authInfo: { ...authInfo, attempt: firstAuthAttempt(req) ? 1 : 2 }, callback } satisfies LoginEvent));
+ 		this._register(onLogin(this.onLogin, this));
+ 	}
