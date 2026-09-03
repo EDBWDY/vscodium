@@ -19,6 +19,17 @@ if [[ "${SHOULD_BUILD}" == "yes" ]]; then
   # compile via core-ci before invoking the platform min-ci packaging task.
   npm run gulp core-ci
 
+  # Latest VS Code is the build authority. In this mode VSCodium has already
+  # applied its product branding in prepare_vscode.sh; do not run its legacy
+  # CLI, remote-host, or secondary packaging stages.
+  if [[ "${VSCODIUM_LATEST_UPSTREAM}" == "yes" && "${OS_NAME}" == "windows" ]]; then
+    npm run copy-policy-dto --prefix build
+    node build/lib/policies/policyGenerator.ts build/lib/policies/policyData.jsonc win32
+    npm run gulp "vscode-win32-${VSCODE_ARCH}-min-ci"
+    cd ..
+    exit 0
+  fi
+
   if [[ "${OS_NAME}" == "osx" ]]; then
     # remove win32 node modules
     rm -f .build/extensions/ms-vscode.js-debug/src/win32-app-container-tokens.*.node

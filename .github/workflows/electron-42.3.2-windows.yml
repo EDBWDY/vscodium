@@ -49,7 +49,10 @@ jobs:
         run: ./get_repo.sh
 
       - name: Build with Electron 42.3.2
-        run: ./build.sh
+        run: |
+          # Match the SDK visibility used by VS Code's official Windows CI.
+          export PATH="/c/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64:$PATH"
+          ./build.sh
 
       - name: Upload portable Windows build
         uses: actions/upload-artifact@v4
