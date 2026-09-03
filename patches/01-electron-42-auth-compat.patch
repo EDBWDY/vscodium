@@ -1,7 +1,7 @@
 diff --git a/src/vs/platform/native/electron-main/auth.ts b/src/vs/platform/native/electron-main/auth.ts
 --- a/src/vs/platform/native/electron-main/auth.ts
 +++ b/src/vs/platform/native/electron-main/auth.ts
-@@ -61,7 +61,8 @@ export class ProxyAuthService extends Disposable implements IProxyAuthService {
+@@ -61,6 +61,7 @@ export class ProxyAuthService extends Disposable implements IProxyAuthService {
  	}
  
  	private registerListeners(): void {
