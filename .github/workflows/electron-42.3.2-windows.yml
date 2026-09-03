@@ -84,11 +84,25 @@ jobs:
           test -f "VSCode-win32-${VSCODE_ARCH}/appx/code_explorer_command_${VSCODE_ARCH}.dll"
 
       - name: Pack Windows context menu APPX
+        shell: pwsh
         run: |
-          export PATH="/c/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64:$PATH"
-          powershell "makeappx pack /d .\\VSCode-win32-${VSCODE_ARCH}\\appx\\manifest /p .\\VSCode-win32-${VSCODE_ARCH}\\appx\\code_${VSCODE_ARCH}.appx /nv"
-          rm -rf "VSCode-win32-${VSCODE_ARCH}/appx/manifest"
-          test -f "VSCode-win32-${VSCODE_ARCH}/appx/code_${VSCODE_ARCH}.appx"
+          $sdk = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64"
+          $env:PATH = "$sdk;$env:PATH"
+
+          $appxDir = Join-Path $env:GITHUB_WORKSPACE "VSCode-win32-$env:VSCODE_ARCH\appx"
+
+          makeappx pack `
+            /d "$appxDir\manifest" `
+            /p "$appxDir\code_$env:VSCODE_ARCH.appx" `
+            /nv
+
+          Remove-Item "$appxDir\manifest" -Recurse -Force
+
+          if (-not (Test-Path "$appxDir\code_$env:VSCODE_ARCH.appx")) {
+            throw "APPX package was not created"
+          }
+
+          Get-ChildItem $appxDir
 
       - name: Prepare Inno updater
         run: |
