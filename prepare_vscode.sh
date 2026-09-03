@@ -176,10 +176,14 @@ if [[ -d "../patches/${OS_NAME}/" ]]; then
 fi
 
 for file in ../patches/user/*.patch; do
-  if [[ -f "${file}" ]]; then
-    apply_patch "${file}"
-  fi
+	if [[ -f "${file}" ]]; then
+		apply_patch "${file}"
+	fi
 done
+
+# The Electron version is pinned by patches/00-build-update-electron-42.3.2.patch.
+# Keep VS Code's asset verification list in lockstep with that exact release.
+cp ../build/electron/SHASUMS256-v42.3.2.txt build/checksums/electron.txt
 # }}}
 
 set -x

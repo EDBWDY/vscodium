@@ -1,0 +1,57 @@
+name: Electron 42.3.2 - Windows x64
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - electron-42.3.2
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: bash
+    env:
+      APP_NAME: VSCodium
+      BINARY_NAME: codium
+      CI_BUILD: 'no'
+      GH_REPO_PATH: ${{ github.repository }}
+      GITHUB_BRANCH: ${{ github.sha }}
+      ORG_NAME: ${{ github.repository_owner }}
+      OS_NAME: windows
+      SHOULD_BUILD: 'yes'
+      SHOULD_BUILD_REH: 'no'
+      SHOULD_BUILD_REH_WEB: 'no'
+      VSCODE_ARCH: x64
+      VSCODE_QUALITY: stable
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Fetch pinned VS Code source
+        run: ./get_repo.sh
+
+      - name: Build with Electron 42.3.2
+        run: ./build.sh
+
+      - name: Upload portable Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: VSCodium-win32-x64-electron-42.3.2
+          path: VSCode-win32-x64/
+          if-no-files-found: error
+          retention-days: 14
