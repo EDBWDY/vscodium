@@ -23,6 +23,7 @@ if [[ "${SHOULD_BUILD}" == "yes" ]]; then
   # applied its product branding in prepare_vscode.sh; do not run its legacy
   # CLI, remote-host, or secondary packaging stages.
   if [[ "${VSCODIUM_LATEST_UPSTREAM}" == "yes" && "${OS_NAME}" == "windows" ]]; then
+    npm run gulp compile-copilot-extension-build
     npm run copy-policy-dto --prefix build
     node build/lib/policies/policyGenerator.ts build/lib/policies/policyData.jsonc win32
     npm run gulp "vscode-win32-${VSCODE_ARCH}-min-ci"

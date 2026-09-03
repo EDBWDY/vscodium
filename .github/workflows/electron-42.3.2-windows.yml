@@ -48,12 +48,6 @@ jobs:
       - name: Fetch pinned VS Code source
         run: ./get_repo.sh
 
-      - name: Apply VSCodium Copilot removal patch
-        run: |
-          cd vscode
-          git apply --check ../patches/53-ext-copilot-remove-it.patch
-          git apply ../patches/53-ext-copilot-remove-it.patch
-
       - name: Build with Electron 42.3.2
         run: |
           # Match the SDK visibility used by VS Code's official Windows CI.
