@@ -289,7 +289,10 @@ jobs:
           echo 'vscode/.build/extensions/node_modules' >> vscode.txt
           echo 'vscode/.build/extensions/copilot/node_modules' >> vscode.txt
           echo 'vscode/.git' >> vscode.txt
-          tar -czf vscode.tar.gz -T vscode.txt
+          # Copilot's production dependencies can be linked from npm's
+          # hoisted tree. Dereference the explicitly listed runtime directory
+          # so the next job receives the SDK files rather than a dead link.
+          tar -czhf vscode.tar.gz -T vscode.txt
           test -s vscode.tar.gz
           tar -tzf vscode.tar.gz | grep -Fx 'vscode/.build/extensions/copilot/node_modules/@github/copilot/sdk/index.js'
 
