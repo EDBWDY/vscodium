@@ -8,10 +8,9 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
-  build:
+  build-and-package:
     runs-on: windows-2022
     defaults:
       run:
@@ -37,6 +36,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
+          # VS Code 1.136.0 requires Node.js 24.18.0; VSCodium's checked-in
+          # .nvmrc belongs to its older release line.
           node-version: '24.18.0'
 
       - name: Setup Python
@@ -47,27 +48,38 @@ jobs:
       - name: Fetch pinned VS Code source
         run: ./get_repo.sh
 
-      - name: Prepare VS Code sources for installer tasks
+      - name: Verify pinned upstream
         run: |
-          . ./version.sh
-          . ./prepare_vscode.sh
+          test "$MS_TAG" = "1.136.0"
+          test "$MS_COMMIT" = "520fb30b2d3d324b4cb2342f6e88e2cd93751de1"
+          echo "Pinned VS Code: $MS_TAG ($MS_COMMIT)"
 
-      - name: Reuse known-good portable build from run 15
-        uses: actions/download-artifact@v4
+      - name: Build portable VSCodium with Electron 42.3.2
+        run: |
+          # Match the SDK visibility used by VS Code's Windows CI.
+          export PATH="/c/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64:$PATH"
+          ./build.sh
+
+      - name: Verify portable build and signature policy
+        run: |
+          test -d VSCode-win32-${VSCODE_ARCH}/resources/app
+          test -f VSCode-win32-${VSCODE_ARCH}/resources/app/product.json
+          test -d VSCode-win32-${VSCODE_ARCH}/appx/manifest
+          grep -F 'target="42.3.2"' vscode/.npmrc
+          grep -F 'verifySignature = false;' vscode/src/vs/platform/extensionManagement/node/extensionManagementService.ts
+          if grep -Fq 'VerifyExtensionSignatureConfigKey' vscode/src/vs/platform/extensionManagement/node/extensionManagementService.ts; then
+            echo "Unexpected signature-verification configuration hook remains" >&2
+            exit 1
+          fi
+          echo "Portable build and VSCodium no-signature-verification policy verified"
+
+      - name: Upload portable Windows build
+        uses: actions/upload-artifact@v4
         with:
           name: VSCodium-win32-x64-electron-42.3.2
-          path: VSCode-win32-x64
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: 33760861645
-
-      - name: Verify reused portable build
-        run: |
-          test -d VSCode-win32-x64/resources/app
-          test -f VSCode-win32-x64/resources/app/product.json
-          test -d VSCode-win32-x64/appx/manifest
-          echo "Portable build restored successfully"
-          ls -la VSCode-win32-x64 | head -100
+          path: VSCode-win32-x64/
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Prepare installer metadata
         run: |
@@ -91,6 +103,10 @@ jobs:
 
           $appxDir = Join-Path $env:GITHUB_WORKSPACE "VSCode-win32-$env:VSCODE_ARCH\appx"
           $manifestPath = Join-Path $appxDir "manifest\AppxManifest.xml"
+
+          if (-not (Test-Path $manifestPath)) {
+            throw "APPX manifest is missing: $manifestPath"
+          }
 
           [xml]$manifest = Get-Content -Raw $manifestPath
           $originalVersion = [string]$manifest.Package.Identity.Version
@@ -164,11 +180,11 @@ jobs:
       - name: Inspect installer outputs
         run: |
           ls -lah assets
-          test -f "assets/${APP_NAME}-win32-${VSCODE_ARCH}-${RELEASE_VERSION}.zip"
-          test -f "assets/${APP_NAME}Setup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
-          test -f "assets/${APP_NAME}UserSetup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
+          test -s "assets/${APP_NAME}-win32-${VSCODE_ARCH}-${RELEASE_VERSION}.zip"
+          test -s "assets/${APP_NAME}Setup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
+          test -s "assets/${APP_NAME}UserSetup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
 
-      - name: Upload Windows installers
+      - name: Upload Windows installer packages
         uses: actions/upload-artifact@v4
         with:
           name: VSCodium-win32-x64-electron-42.3.2-packages

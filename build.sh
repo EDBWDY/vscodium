@@ -10,6 +10,14 @@ if [[ "${SHOULD_BUILD}" == "yes" ]]; then
 
   . prepare_vscode.sh
 
+  # The current-upstream path deliberately skips most revision-specific
+  # VSCodium patches. Re-apply the small, policy-only signature patch here so
+  # this build keeps VSCodium's normal behaviour: extension signature
+  # verification is not performed.
+  if [[ "${VSCODIUM_LATEST_UPSTREAM}" == "yes" && "${OS_NAME}" == "windows" ]]; then
+    ./build/electron/apply-vscodium-signature-policy.sh
+  fi
+
   cd vscode || { echo "'vscode' dir not found"; exit 1; }
 
   export NODE_OPTIONS="--max-old-space-size=8192"
