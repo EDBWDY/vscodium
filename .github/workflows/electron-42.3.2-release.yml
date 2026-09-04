@@ -1,0 +1,159 @@
+name: Electron 42.3.2 - Publish Windows and Linux REH
+
+on:
+  push:
+    branches:
+      - electron-42.3.2
+    paths:
+      - '.github/workflows/electron-42.3.2-windows.yml'
+      - '.github/workflows/electron-42.3.2-linux-reh.yml'
+      - '.github/workflows/electron-42.3.2-release.yml'
+      - 'build.sh'
+      - 'prepare_vscode.sh'
+      - 'build/linux/package_reh.sh'
+      - 'build/electron/**'
+      - 'patches/**'
+      - 'product.json'
+      - 'upstream/stable.json'
+      - 'npmrc'
+
+# A push starts this lightweight gate alongside the two build workflows.  The
+# gate waits for *this exact commit* to have both successful artifacts before
+# publishing, so a Windows or REH failure can never produce a partial release.
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LINUX_REH_WORKFLOW: Electron 42.3.2 - Linux x64 REH
+      WINDOWS_WORKFLOW: Electron 42.3.2 - Windows x64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Wait for matching Windows and Linux REH builds
+        id: builds
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          find_run() {
+            local workflow="$1"
+            gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow "$workflow" \
+              --branch "$GITHUB_REF_NAME" \
+              --commit "$GITHUB_SHA" \
+              --limit 100 \
+              --json databaseId,status,conclusion,createdAt \
+              --jq 'sort_by(.createdAt) | last // empty'
+          }
+
+          for _ in $(seq 1 180); do
+            windows_run="$(find_run "$WINDOWS_WORKFLOW")"
+            reh_run="$(find_run "$LINUX_REH_WORKFLOW")"
+
+            if [[ -n "$windows_run" && -n "$reh_run" ]]; then
+              windows_status="$(jq -r '.status' <<<"$windows_run")"
+              reh_status="$(jq -r '.status' <<<"$reh_run")"
+
+              if [[ "$windows_status" == completed && "$reh_status" == completed ]]; then
+                windows_conclusion="$(jq -r '.conclusion' <<<"$windows_run")"
+                reh_conclusion="$(jq -r '.conclusion' <<<"$reh_run")"
+
+                [[ "$windows_conclusion" == success ]] || {
+                  echo "Matching Windows build concluded: $windows_conclusion" >&2
+                  exit 1
+                }
+                [[ "$reh_conclusion" == success ]] || {
+                  echo "Matching Linux REH build concluded: $reh_conclusion" >&2
+                  exit 1
+                }
+
+                echo "windows_run_id=$(jq -r '.databaseId' <<<"$windows_run")" >> "$GITHUB_OUTPUT"
+                echo "reh_run_id=$(jq -r '.databaseId' <<<"$reh_run")" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            fi
+
+            sleep 20
+          done
+
+          echo "Timed out waiting for matching Windows and Linux REH runs for $GITHUB_SHA" >&2
+          exit 1
+
+      - name: Download build artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-input/windows release-input/linux release
+          gh run download "${{ steps.builds.outputs.windows_run_id }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir release-input/windows
+          gh run download "${{ steps.builds.outputs.reh_run_id }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir release-input/linux
+
+      - name: Assemble release assets
+        id: assets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          reh_asset="$(find release-input/linux -type f -name 'vscodium-reh-linux-x64-*.tar.gz' -print -quit)"
+          [[ -n "$reh_asset" ]] || {
+            echo 'The Linux REH workflow did not provide vscodium-reh-linux-x64-<version>.tar.gz.' >&2
+            exit 1
+          }
+
+          version="$(basename "$reh_asset" | sed -E 's/^vscodium-reh-linux-x64-(.+)\.tar\.gz$/\1/')"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "Unexpected REH version in $reh_asset" >&2
+            exit 1
+          }
+
+          mapfile -t windows_assets < <(
+            find release-input/windows -type f \( \
+              -name "VSCodium-win32-x64-${version}.zip" -o \
+              -name "VSCodiumSetup-x64-${version}.exe" -o \
+              -name "VSCodiumUserSetup-x64-${version}.exe" \
+            \)
+          )
+          [[ ${#windows_assets[@]} -eq 3 ]] || {
+            echo "Expected the Windows ZIP plus System and User EXE packages for ${version}; found ${#windows_assets[@]}." >&2
+            exit 1
+          }
+
+          cp "${windows_assets[@]}" release/
+          cp "${reh_asset}"* release/
+          (
+            cd release
+            sha256sum * > SHA256SUMS
+          )
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.assets.outputs.version }}"
+
+          if ! gh release view "$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$version" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "VSCodium ${version} (Electron 42.3.2)" \
+              --notes "Windows x64 and Linux x64 Remote Extension Host builds for ${GITHUB_SHA}."
+          fi
+
+          gh release upload "$version" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber

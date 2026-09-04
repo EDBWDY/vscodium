@@ -2,6 +2,21 @@ name: Electron 42.3.2 - Windows x64
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - electron-42.3.2
+    paths:
+      - '.github/workflows/electron-42.3.2-windows.yml'
+      - '.github/workflows/electron-42.3.2-linux-reh.yml'
+      - '.github/workflows/electron-42.3.2-release.yml'
+      - 'build.sh'
+      - 'prepare_vscode.sh'
+      - 'build/linux/package_reh.sh'
+      - 'build/electron/**'
+      - 'patches/**'
+      - 'product.json'
+      - 'upstream/stable.json'
+      - 'npmrc'
 
 permissions:
   contents: read
