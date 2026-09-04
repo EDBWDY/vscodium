@@ -1,0 +1,181 @@
+name: Electron 42.3.2 - Linux x64 REH
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - electron-42.3.2
+    paths:
+      - '.github/workflows/electron-42.3.2-linux-reh.yml'
+      - 'build.sh'
+      - 'prepare_vscode.sh'
+      - 'build/linux/package_reh.sh'
+      - 'build/electron/**'
+      - 'patches/**'
+      - 'product.json'
+      - 'upstream/stable.json'
+      - 'npmrc'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: electron-42.3.2-linux-reh-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  APP_NAME: VSCodium
+  BINARY_NAME: codium
+  CI_BUILD: 'yes'
+  GH_REPO_PATH: ${{ github.repository }}
+  GITHUB_BRANCH: ${{ github.sha }}
+  ORG_NAME: ${{ github.repository_owner }}
+  OS_NAME: linux
+  VSCODE_QUALITY: stable
+  VSCODIUM_LATEST_UPSTREAM: 'yes'
+
+jobs:
+  compile:
+    runs-on: ubuntu-22.04
+    env:
+      VSCODE_ARCH: x64
+      SHOULD_BUILD: 'yes'
+      SHOULD_BUILD_REH: 'no'
+      SHOULD_BUILD_REH_WEB: 'no'
+    outputs:
+      BUILD_SOURCEVERSION: ${{ env.BUILD_SOURCEVERSION }}
+      MS_COMMIT: ${{ env.MS_COMMIT }}
+      MS_TAG: ${{ env.MS_TAG }}
+      RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup GCC 10
+        uses: egor-tensin/setup-gcc@a2861a8b8538f49cf2850980acccf6b05a1b2ae4
+        with:
+          version: 10
+          platform: x64
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.0'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install native build dependencies
+        run: sudo apt-get update -y && sudo apt-get install -y libkrb5-dev
+
+      - name: Fetch pinned VS Code source
+        run: ./get_repo.sh
+
+      - name: Verify pinned upstream
+        run: |
+          test "$MS_TAG" = "1.136.0"
+          test "$MS_COMMIT" = "520fb30b2d3d324b4cb2342f6e88e2cd93751de1"
+          echo "Pinned VS Code: $MS_TAG ($MS_COMMIT)"
+
+      - name: Compile current-upstream source
+        run: ./build.sh
+
+      - name: Verify VSCodium signature policy
+        run: |
+          grep -F 'verifySignature = false;' vscode/src/vs/platform/extensionManagement/node/extensionManagementService.ts
+          if grep -Fq 'VerifyExtensionSignatureConfigKey' vscode/src/vs/platform/extensionManagement/node/extensionManagementService.ts; then
+            echo "Unexpected signature-verification configuration hook remains" >&2
+            exit 1
+          fi
+
+      - name: Archive compiled VS Code tree
+        run: |
+          find vscode -type f -not -path '*/node_modules/*' -not -path 'vscode/.build/node/*' -not -path 'vscode/.git/*' > vscode.txt
+          echo 'vscode/.build/extensions/node_modules' >> vscode.txt
+          echo 'vscode/.git' >> vscode.txt
+          tar -czf vscode.tar.gz -T vscode.txt
+          test -s vscode.tar.gz
+
+      - name: Upload compiled source
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-electron-42.3.2-linux-reh-source
+          path: vscode.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  reh-linux-x64:
+    needs: compile
+    runs-on: ubuntu-22.04
+    env:
+      BUILD_SOURCEVERSION: ${{ needs.compile.outputs.BUILD_SOURCEVERSION }}
+      MS_COMMIT: ${{ needs.compile.outputs.MS_COMMIT }}
+      MS_TAG: ${{ needs.compile.outputs.MS_TAG }}
+      RELEASE_VERSION: ${{ needs.compile.outputs.RELEASE_VERSION }}
+      SHOULD_BUILD_REH: 'yes'
+      SHOULD_BUILD_REH_WEB: 'no'
+      VSCODE_ARCH: x64
+      npm_config_arch: x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup GCC 10
+        uses: egor-tensin/setup-gcc@a2861a8b8538f49cf2850980acccf6b05a1b2ae4
+        with:
+          version: 10
+          platform: x64
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.0'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install native build dependencies
+        run: sudo apt-get update -y && sudo apt-get install -y libkrb5-dev
+
+      - name: Install GitHub CLI helper
+        run: ./build/linux/install_gh.sh
+
+      - name: Download compiled source
+        uses: actions/download-artifact@v4
+        with:
+          name: vscode-electron-42.3.2-linux-reh-source
+
+      - name: Build Linux x64 Remote Extension Host
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./build/linux/package_reh.sh
+
+      - name: Verify REH artifact
+        run: |
+          shopt -s nullglob
+          reh=(assets/vscodium-reh-linux-x64-*.tar.gz)
+          if [[ ${#reh[@]} -ne 1 ]]; then
+            echo "Expected exactly one Linux x64 REH archive, found ${#reh[@]}" >&2
+            ls -lah assets || true
+            exit 1
+          fi
+          test -s "${reh[0]}"
+          test -s "${reh[0]}.sha256"
+          test -s "${reh[0]}.sha1"
+          tar -tzf "${reh[0]}" >/dev/null
+          echo "Verified ${reh[0]}"
+
+      - name: Upload Linux x64 REH
+        uses: actions/upload-artifact@v4
+        with:
+          name: VSCodium-reh-linux-x64-vscode-1.136-electron-42.3.2
+          path: |
+            assets/vscodium-reh-linux-x64-*.tar.gz
+            assets/vscodium-reh-linux-x64-*.tar.gz.sha256
+            assets/vscodium-reh-linux-x64-*.tar.gz.sha1
+          if-no-files-found: error
+          retention-days: 14
