@@ -230,6 +230,16 @@ jobs:
         run: |
           cd vscode
           "$RUNNER_TEMP/run-diagnostic-stage.sh" "compile-copilot-extension-build" npm run gulp compile-copilot-extension-build
+          # build/.moduleignore removes this bundled SDK entrypoint from the
+          # generic extension stream. The built-in Copilot extension imports it
+          # directly at runtime, so restore the verified source copy into the
+          # REH staging tree before it is archived for the packaging job.
+          sdk_source='extensions/copilot/node_modules/@github/copilot/sdk/index.js'
+          sdk_output='.build/extensions/copilot/node_modules/@github/copilot/sdk/index.js'
+          test -f "$sdk_source"
+          mkdir -p "$(dirname "$sdk_output")"
+          cp -a "$sdk_source" "$sdk_output"
+          test -f "$sdk_output"
 
       - name: Core CI - Compile extension media
         env:
@@ -285,7 +295,7 @@ jobs:
       - name: Archive compiled VS Code tree
         run: |
           find vscode -type f -not -path '*/node_modules/*' -not -path 'vscode/.build/node/*' -not -path 'vscode/.git/*' > vscode.txt
-          test -d vscode/.build/extensions/copilot/node_modules/@github/copilot/sdk
+          test -f vscode/.build/extensions/copilot/node_modules/@github/copilot/sdk/index.js
           echo 'vscode/.build/extensions/node_modules' >> vscode.txt
           echo 'vscode/.build/extensions/copilot/node_modules' >> vscode.txt
           echo 'vscode/.git' >> vscode.txt
@@ -294,7 +304,7 @@ jobs:
           # so the next job receives the SDK files rather than a dead link.
           tar -czhf vscode.tar.gz -T vscode.txt
           test -s vscode.tar.gz
-          tar -tzf vscode.tar.gz | grep -F 'vscode/.build/extensions/copilot/node_modules/@github/copilot/sdk/' >/dev/null
+          tar -tzf vscode.tar.gz | grep -Fx 'vscode/.build/extensions/copilot/node_modules/@github/copilot/sdk/index.js'
 
       - name: Upload compiled source
         uses: actions/upload-artifact@v4
@@ -366,7 +376,7 @@ jobs:
           test -s "${reh[0]}.sha256"
           test -s "${reh[0]}.sha1"
           tar -tzf "${reh[0]}" >/dev/null
-          tar -tzf "${reh[0]}" | grep -F './extensions/copilot/node_modules/@github/copilot/sdk/' >/dev/null
+          tar -tzf "${reh[0]}" | grep -Fx './extensions/copilot/node_modules/@github/copilot/sdk/index.js'
           echo "Verified ${reh[0]}"
 
       - name: Upload Linux x64 REH
