@@ -176,8 +176,6 @@ jobs:
             };
 
             await Promise.all([
-              runBundle('esbuild-vscode-min', () =>
-                runEsbuildBundle('out-vscode-min', true, true, 'desktop', `${sourceMappingURLBase}/core`)),
               runBundle('esbuild-vscode-reh-min', () =>
                 runEsbuildBundle('out-vscode-reh-min', true, true, 'server', `${sourceMappingURLBase}/core`)),
               runBundle('esbuild-vscode-reh-web-min', () =>
@@ -255,7 +253,7 @@ jobs:
           cd vscode
           "$RUNNER_TEMP/run-diagnostic-stage.sh" "esbuild-out-build" node --experimental-strip-types "$RUNNER_TEMP/core-ci-stage.mjs" transpile
 
-      - name: Core CI - Build desktop and REH bundles
+      - name: Core CI - Build REH bundles
         env:
           NODE_OPTIONS: --max-old-space-size=8192
           VSCODE_PUBLISH_COUNTER: '1'
