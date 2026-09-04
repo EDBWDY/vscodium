@@ -1,0 +1,36 @@
+name: Cleanup Electron 42 active runs
+
+on:
+  push:
+    branches:
+      - electron-42.3.2
+    paths:
+      - '.github/workflows/cleanup-electron-42-active-runs.yml'
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel all active Electron 42 runs except current REH
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP_RUN_ID: '33826525644'
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          self="$GITHUB_RUN_ID"
+          gh api "/repos/$repo/actions/runs?branch=electron-42.3.2&per_page=100" > runs.json
+          jq -r '.workflow_runs[] | select(.status == "queued" or .status == "pending" or .status == "in_progress" or .status == "waiting" or .status == "requested") | .id' runs.json |
+          while read -r id; do
+            [[ -z "$id" ]] && continue
+            if [[ "$id" == "$KEEP_RUN_ID" || "$id" == "$self" ]]; then
+              echo "Keeping run $id"
+              continue
+            fi
+            echo "Cancelling run $id"
+            gh api -X POST "/repos/$repo/actions/runs/$id/cancel" || true
+          done
