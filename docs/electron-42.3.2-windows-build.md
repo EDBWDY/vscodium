@@ -23,7 +23,7 @@ The authoritative CI entry point is `.github/workflows/electron-42.3.2-windows.y
 6. Install dependencies using the upstream VS Code npm configuration rather than the older VSCodium release-line npmrc.
 7. Build using VS Code's current Windows pipeline: `core-ci`, built-in Copilot packaging, policy generation, then `vscode-win32-x64-min-ci`.
 8. Upload the raw portable directory artifact.
-9. Fetch the Explorer context-menu DLL, build the context-menu APPX, build the Inno updater, then create the portable ZIP, System installer and User installer.
+9. Fetch the Explorer context-menu DLL, build a VSCodium-identity context-menu APPX, sign it with the build's VSCodium certificate, build the Inno updater, then create the portable ZIP, System installer and User installer. The installer trusts that public certificate before it registers the APPX.
 10. Upload the installer package artifact.
 
 Expected artifacts:
@@ -58,6 +58,7 @@ Do not add `@vscode/vsce-sign` or `@vscodium/vsce-sign` merely to suppress the d
 | `makeappx` fails or behaves inconsistently from bash | Windows SDK tooling is PowerShell-oriented and quoting differs | Run the APPX packaging step under `pwsh` |
 | `makeappx` rejects `AppxManifest.xml` version | APPX requires four integer components, each in `0..65535` | Parse and rewrite all four components before packing |
 | Inno setup cannot find the context-menu APPX | The APPX must be produced before setup tasks | Build `code_x64.appx` before `vscode-win32-x64-inno-updater` and setup tasks |
+| Explorer context menu APPX is rejected with `0x800B0100` | Unsigned APPX packages cannot be registered | Ensure the workflow creates `vscodium-context-menu.cer`, signs the APPX as `CN=VSCodium`, and the installer imports that public certificate before registration |
 | Signature warning appears for Microsoft Marketplace extensions | The latest-upstream path skipped VSCodium's signature-disable patch | Apply and verify the dedicated signature-policy script before compilation |
 | A later packaging run silently uses an old portable build | The old workflow hard-coded workflow run `33760861645` | Current workflow builds and packages in one run; never hard-code historical run IDs |
 

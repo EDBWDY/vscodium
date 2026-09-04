@@ -1,0 +1,46 @@
+diff --git a/build/gulpfile.vscode.win32.ts b/build/gulpfile.vscode.win32.ts
+index 7a711276..09a7e83f 100644
+--- a/build/gulpfile.vscode.win32.ts
++++ b/build/gulpfile.vscode.win32.ts
+@@ -116,6 +116,7 @@ function buildWin32Setup(arch: string, target: string): task.CallbackTask {
+ 		if (quality === 'stable' || quality === 'insider') {
+ 			definitions['AppxPackage'] = `${quality === 'stable' ? 'code' : 'code_insider'}_${arch}.appx`;
+ 			definitions['AppxPackageDll'] = `${quality === 'stable' ? 'code' : 'code_insider'}_explorer_command_${arch}.dll`;
++			definitions['AppxPackageCertificate'] = 'vscodium-context-menu.cer';
+ 			definitions['AppxPackageName'] = `${product.win32AppUserModelId}`;
+ 			const ctxMenu = (product as { win32ContextMenu?: Record<string, { clsid: string }> }).win32ContextMenu;
+ 			if (ctxMenu && ctxMenu[arch]) {
+diff --git a/build/win32/code.iss b/build/win32/code.iss
+index 493c7861..c0c83953 100644
+--- a/build/win32/code.iss
++++ b/build/win32/code.iss
+@@ -106,5 +106,6 @@ Source: "{#ProductJsonPath}"; DestDir: "{code:GetDestDir}\{#VersionedResourcesFolder}\resources\app"; Flags: ignoreversion
+ Source: "{#ProductJsonPath}"; DestDir: "{code:GetDestDir}\{#VersionedResourcesFolder}\resources\app"; Flags: ignoreversion
+ #ifdef AppxPackageName
++Source: "appx\{#AppxPackageCertificate}"; DestDir: "{code:GetDestDir}\{#VersionedResourcesFolder}\appx"; AfterInstall: TrustAppxPackageCertificate; Flags: ignoreversion; Check: ShouldUseWindows11ContextMenu
+ Source: "appx\{#AppxPackage}"; DestDir: "{code:GetDestDir}\{#VersionedResourcesFolder}\appx"; BeforeInstall: RemoveAppxPackage; Flags: ignoreversion; Check: ShouldUseWindows11ContextMenu
+ Source: "appx\{#AppxPackageDll}"; DestDir: "{code:GetDestDir}\{#VersionedResourcesFolder}\appx"; AfterInstall: AddAppxPackage; Flags: ignoreversion; Check: ShouldUseWindows11ContextMenu
+ #endif
+@@ -1742,6 +1743,22 @@ function AppxPackageInstalled(const name: String; var ResultCode: Integer): Boolean;
+   Log('Get-AppxPackage result: name=' + name + ', installed=' + BoolToStr(Result) + ', resultCode=' + IntToStr(ResultCode) + ', packageFullName=' + AppxPackageFullname);
+ end;
+ 
++procedure TrustAppxPackageCertificate();
++var
++  TrustCertificateResultCode: Integer;
++begin
++  Log('Trusting the VSCodium Explorer context menu certificate.');
++#if "user" == InstallTarget
++  ShellExec('', 'powershell.exe', '-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command ' + AddQuotes('Import-Certificate -FilePath ''' + ExpandConstant('{app}\{#VersionedResourcesFolder}\appx\{#AppxPackageCertificate}') + ''' -CertStoreLocation ''Cert:\CurrentUser\TrustedPeople'' | Out-Null'), '', SW_HIDE, ewWaitUntilTerminated, TrustCertificateResultCode);
++#else
++  ShellExec('', 'powershell.exe', '-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command ' + AddQuotes('Import-Certificate -FilePath ''' + ExpandConstant('{app}\{#VersionedResourcesFolder}\appx\{#AppxPackageCertificate}') + ''' -CertStoreLocation ''Cert:\LocalMachine\TrustedPeople'' | Out-Null'), '', SW_HIDE, ewWaitUntilTerminated, TrustCertificateResultCode);
++#endif
++  if TrustCertificateResultCode <> 0 then begin
++    RaiseException('Unable to trust the VSCodium Explorer context menu certificate (exit code ' + IntToStr(TrustCertificateResultCode) + ').');
++  end;
++  Log('VSCodium Explorer context menu certificate trusted.');
++end;
++
+ procedure AddAppxPackage();
+ var
+   AddAppxPackageResultCode: Integer;

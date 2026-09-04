@@ -41,6 +41,7 @@ jobs:
       VSCODE_ARCH: x64
       VSCODE_QUALITY: stable
       VSCODIUM_LATEST_UPSTREAM: 'yes'
+      VSCODIUM_CONTEXT_MENU_PUBLISHER: 'CN=VSCodium'
 
     steps:
       - uses: actions/checkout@v4
@@ -140,6 +141,7 @@ jobs:
 
           $normalizedVersion = $normalizedParts -join '.'
           $manifest.Package.Identity.Version = $normalizedVersion
+          $manifest.Package.Identity.Publisher = $env:VSCODIUM_CONTEXT_MENU_PUBLISHER
 
           $settings = New-Object System.Xml.XmlWriterSettings
           $settings.Indent = $true
@@ -153,15 +155,42 @@ jobs:
 
           Write-Host "Normalized APPX version: $originalVersion -> $normalizedVersion"
 
+          $certificate = New-SelfSignedCertificate `
+            -Type Custom `
+            -Subject $env:VSCODIUM_CONTEXT_MENU_PUBLISHER `
+            -KeyUsage DigitalSignature `
+            -KeyExportPolicy Exportable `
+            -CertStoreLocation 'Cert:\CurrentUser\My' `
+            -FriendlyName 'VSCodium Explorer Context Menu' `
+            -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3')
+
+          $certificatePath = Join-Path $appxDir 'vscodium-context-menu.cer'
+          Export-Certificate -Cert $certificate -FilePath $certificatePath | Out-Null
+          Import-Certificate -FilePath $certificatePath -CertStoreLocation 'Cert:\CurrentUser\TrustedPeople' | Out-Null
+
+          $appxPath = Join-Path $appxDir "code_$env:VSCODE_ARCH.appx"
           makeappx pack `
             /d "$appxDir\manifest" `
-            /p "$appxDir\code_$env:VSCODE_ARCH.appx" `
+            /p $appxPath `
             /nv
+
+          & signtool sign /fd SHA256 /sha1 $certificate.Thumbprint /s My $appxPath
+          if ($LASTEXITCODE -ne 0) {
+            throw "signtool failed to sign $appxPath"
+          }
+
+          & signtool verify /pa /all $appxPath
+          if ($LASTEXITCODE -ne 0) {
+            throw "signtool failed to verify $appxPath"
+          }
 
           Remove-Item "$appxDir\manifest" -Recurse -Force
 
           if (-not (Test-Path "$appxDir\code_$env:VSCODE_ARCH.appx")) {
             throw "APPX package was not created"
+          }
+          if (-not (Test-Path $certificatePath)) {
+            throw "VSCodium context-menu certificate was not created"
           }
 
           Get-ChildItem $appxDir
