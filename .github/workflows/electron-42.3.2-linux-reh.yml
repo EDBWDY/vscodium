@@ -79,8 +79,192 @@ jobs:
           test "$MS_COMMIT" = "520fb30b2d3d324b4cb2342f6e88e2cd93751de1"
           echo "Pinned VS Code: $MS_TAG ($MS_COMMIT)"
 
-      - name: Compile current-upstream source
-        run: ./build.sh
+      - name: Install compile diagnostics
+        run: |
+          cat > "$RUNNER_TEMP/run-diagnostic-stage.sh" <<'EOF'
+          #!/usr/bin/env bash
+          set -Eeuo pipefail
+
+          label="$1"
+          shift
+
+          snapshot() {
+            echo "::group::Diagnostics - ${label} - $1"
+            date -u '+UTC %Y-%m-%dT%H:%M:%SZ'
+            uptime || true
+            free -h || true
+            df -h . /tmp || true
+            echo "::endgroup::"
+          }
+
+          processes() {
+            echo "::group::Process tree - ${label}"
+            (ps -eo pid,ppid,stat,etime,%cpu,%mem,rss,comm,args --sort=-rss | head -n 50) || true
+            echo "::endgroup::"
+          }
+
+          on_term() {
+            echo "::error::SIGTERM received during ${label}"
+            snapshot "SIGTERM"
+            processes
+            exit 143
+          }
+
+          on_int() {
+            echo "::error::SIGINT received during ${label}"
+            snapshot "SIGINT"
+            processes
+            exit 130
+          }
+
+          trap on_term TERM
+          trap on_int INT
+
+          snapshot "start"
+          started="$(date +%s)"
+
+          set +e
+          "$@"
+          rc=$?
+          set -e
+
+          ended="$(date +%s)"
+          snapshot "end rc=${rc}, elapsed=$((ended - started))s"
+          if (( rc != 0 )); then
+            processes
+          fi
+
+          exit "$rc"
+          EOF
+          chmod +x "$RUNNER_TEMP/run-diagnostic-stage.sh"
+
+          cat > "$RUNNER_TEMP/core-ci-stage.mjs" <<'EOF'
+          import path from 'node:path';
+          import { pathToFileURL } from 'node:url';
+
+          const stage = process.argv[2];
+          const root = process.cwd();
+          const load = relativePath => import(pathToFileURL(path.join(root, relativePath)).href);
+
+          if (stage === 'date') {
+            const { writeISODate } = await load('build/lib/date.ts');
+            await writeISODate('out-build')();
+          } else if (stage === 'typecheck') {
+            const { spawnTsgo } = await load('build/lib/tsgo.ts');
+            await spawnTsgo(path.join(root, 'src', 'tsconfig.json'), {
+              taskName: 'tsgo-typecheck',
+              noEmit: true
+            });
+          } else if (stage === 'transpile') {
+            const { runEsbuildTranspile } = await load('build/lib/esbuild.ts');
+            await runEsbuildTranspile('out-build', false);
+          } else if (stage === 'bundles') {
+            const { getVersion } = await load('build/lib/getVersion.ts');
+            const { runEsbuildBundle } = await load('build/lib/esbuild.ts');
+            const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${getVersion(root)}`;
+
+            const runBundle = async (name, fn) => {
+              const started = Date.now();
+              console.log(`[diagnostic] Starting ${name} at ${new Date().toISOString()}`);
+              try {
+                await fn();
+                console.log(`[diagnostic] Finished ${name} after ${Date.now() - started} ms`);
+              } catch (error) {
+                console.error(`[diagnostic] Failed ${name} after ${Date.now() - started} ms`);
+                throw error;
+              }
+            };
+
+            await Promise.all([
+              runBundle('esbuild-vscode-min', () =>
+                runEsbuildBundle('out-vscode-min', true, true, 'desktop', `${sourceMappingURLBase}/core`)),
+              runBundle('esbuild-vscode-reh-min', () =>
+                runEsbuildBundle('out-vscode-reh-min', true, true, 'server', `${sourceMappingURLBase}/core`)),
+              runBundle('esbuild-vscode-reh-web-min', () =>
+                runEsbuildBundle('out-vscode-reh-web-min', true, true, 'server-web', `${sourceMappingURLBase}/core`))
+            ]);
+          } else {
+            throw new Error(`Unknown core-ci diagnostic stage: ${stage}`);
+          }
+          EOF
+
+      - name: Prepare current-upstream source
+        run: |
+          "$RUNNER_TEMP/run-diagnostic-stage.sh" "prepare-vscode" bash -c '
+            set -ex
+            . ./version.sh
+            echo "MS_COMMIT=\"${MS_COMMIT}\""
+            . ./prepare_vscode.sh
+
+            {
+              echo "ELECTRON_SKIP_BINARY_DOWNLOAD=${ELECTRON_SKIP_BINARY_DOWNLOAD}"
+              echo "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=${PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD}"
+              echo "VSCODE_SKIP_NODE_VERSION_CHECK=${VSCODE_SKIP_NODE_VERSION_CHECK}"
+            } >> "${GITHUB_ENV}"
+
+            if [[ "${VSCODIUM_LATEST_UPSTREAM}" == "yes" ]]; then
+              ./build/electron/apply-vscodium-signature-policy.sh
+            fi
+          '
+
+      - name: Core CI - Copy codicons
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          VSCODE_PUBLISH_COUNTER: '1'
+        run: |
+          cd vscode
+          "$RUNNER_TEMP/run-diagnostic-stage.sh" "copy-codicons" npm run gulp copy-codicons
+
+      - name: Core CI - Compile non-native extensions
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          VSCODE_PUBLISH_COUNTER: '1'
+        run: |
+          cd vscode
+          "$RUNNER_TEMP/run-diagnostic-stage.sh" "compile-non-native-extensions-build" npm run gulp compile-non-native-extensions-build
+
+      - name: Core CI - Compile extension media
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          VSCODE_PUBLISH_COUNTER: '1'
+        run: |
+          cd vscode
+          "$RUNNER_TEMP/run-diagnostic-stage.sh" "compile-extension-media-build" npm run gulp compile-extension-media-build
+
+      - name: Core CI - Write build date
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          VSCODE_PUBLISH_COUNTER: '1'
+        run: |
+          cd vscode
+          "$RUNNER_TEMP/run-diagnostic-stage.sh" "build-date-file" node --experimental-strip-types "$RUNNER_TEMP/core-ci-stage.mjs" date
+
+      - name: Core CI - Typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          VSCODE_PUBLISH_COUNTER: '1'
+        run: |
+          cd vscode
+          "$RUNNER_TEMP/run-diagnostic-stage.sh" "tsgo-typecheck" node --experimental-strip-types "$RUNNER_TEMP/core-ci-stage.mjs" typecheck
+
+      - name: Core CI - Transpile out-build
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          VSCODE_PUBLISH_COUNTER: '1'
+        run: |
+          cd vscode
+          "$RUNNER_TEMP/run-diagnostic-stage.sh" "esbuild-out-build" node --experimental-strip-types "$RUNNER_TEMP/core-ci-stage.mjs" transpile
+
+      - name: Core CI - Build desktop and REH bundles
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          VSCODE_PUBLISH_COUNTER: '1'
+        run: |
+          cd vscode
+          "$RUNNER_TEMP/run-diagnostic-stage.sh" "esbuild-bundles" node --experimental-strip-types "$RUNNER_TEMP/core-ci-stage.mjs" bundles
+
+      - name: Finalize Linux compile tree
+        run: rm -f vscode/.build/extensions/ms-vscode.js-debug/src/win32-app-container-tokens.*.node
 
       - name: Verify VSCodium signature policy
         run: |
