@@ -21,7 +21,7 @@ permissions:
 
 concurrency:
   group: electron-42.3.2-linux-reh-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   APP_NAME: VSCodium
