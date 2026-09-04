@@ -16,6 +16,16 @@ tar -xzf ./vscode.tar.gz
 
 cd vscode || { echo "'vscode' dir not found"; exit 1; }
 
+COPILOT_RUNTIME_PATH=".build/extensions/copilot/node_modules"
+COPILOT_RUNTIME_STAGE=".vscodium-copilot-runtime"
+
+# The compile artifact contains the SDK required by the built-in Copilot
+# extension. npm ci in this packaging job can clean generated dependency
+# directories, so preserve it outside .build and restore it before VS Code's
+# REH packaging task copies extensions into its output tree.
+test -f "${COPILOT_RUNTIME_PATH}/@github/copilot/sdk/index.js"
+mv "${COPILOT_RUNTIME_PATH}" "${COPILOT_RUNTIME_STAGE}"
+
 GLIBC_VERSION="2.28"
 GLIBCXX_VERSION="3.4.26"
 NODE_VERSION="24.15.0"
@@ -196,6 +206,11 @@ export VSCODE_NODE_GLIBC="-glibc-${GLIBC_VERSION}"
 if [[ "${SHOULD_BUILD_REH}" != "no" ]]; then
   echo "Building REH"
 
+  test -f "${COPILOT_RUNTIME_STAGE}/@github/copilot/sdk/index.js"
+  mkdir -p "$( dirname "${COPILOT_RUNTIME_PATH}" )"
+  mv "${COPILOT_RUNTIME_STAGE}" "${COPILOT_RUNTIME_PATH}"
+  test -f "${COPILOT_RUNTIME_PATH}/@github/copilot/sdk/index.js"
+
   if [[ "${SKIP_REH_MINIFY:-no}" == "yes" ]]; then
     test -d out-vscode-reh-min
     echo "Reusing prebuilt out-vscode-reh-min"
@@ -205,16 +220,7 @@ if [[ "${SHOULD_BUILD_REH}" != "no" ]]; then
 
   npm run gulp "vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}-min-ci"
 
-  # The REH packaging task leaves the Copilot extension's SDK out of its
-  # output even though the compile workflow has already produced it under
-  # .build.  Preserve the build's existing Copilot compilation strategy, then
-  # overlay the runtime dependency into the final REH tree.  Copy the complete
-  # node_modules tree because the SDK has runtime dependencies of its own.
-  COPILOT_RUNTIME_SOURCE=".build/extensions/copilot/node_modules"
   COPILOT_RUNTIME_DEST="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}/extensions/copilot/node_modules"
-  test -f "${COPILOT_RUNTIME_SOURCE}/@github/copilot/sdk/index.js"
-  mkdir -p "${COPILOT_RUNTIME_DEST}"
-  cp -a "${COPILOT_RUNTIME_SOURCE}/." "${COPILOT_RUNTIME_DEST}/"
   test -f "${COPILOT_RUNTIME_DEST}/@github/copilot/sdk/index.js"
 
   EXPECTED_GLIBC_VERSION="${EXPECTED_GLIBC_VERSION}" EXPECTED_GLIBCXX_VERSION="${GLIBCXX_VERSION}" SEARCH_PATH="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}" ./build/azure-pipelines/linux/verify-glibc-requirements.sh

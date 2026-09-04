@@ -291,6 +291,7 @@ jobs:
           echo 'vscode/.git' >> vscode.txt
           tar -czf vscode.tar.gz -T vscode.txt
           test -s vscode.tar.gz
+          tar -tzf vscode.tar.gz | grep -Fx 'vscode/.build/extensions/copilot/node_modules/@github/copilot/sdk/index.js'
 
       - name: Upload compiled source
         uses: actions/upload-artifact@v4
