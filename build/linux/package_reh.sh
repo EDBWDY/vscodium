@@ -205,6 +205,18 @@ if [[ "${SHOULD_BUILD_REH}" != "no" ]]; then
 
   npm run gulp "vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}-min-ci"
 
+  # The REH packaging task leaves the Copilot extension's SDK out of its
+  # output even though the compile workflow has already produced it under
+  # .build.  Preserve the build's existing Copilot compilation strategy, then
+  # overlay the runtime dependency into the final REH tree.  Copy the complete
+  # node_modules tree because the SDK has runtime dependencies of its own.
+  COPILOT_RUNTIME_SOURCE=".build/extensions/copilot/node_modules"
+  COPILOT_RUNTIME_DEST="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}/extensions/copilot/node_modules"
+  test -f "${COPILOT_RUNTIME_SOURCE}/@github/copilot/sdk/index.js"
+  mkdir -p "${COPILOT_RUNTIME_DEST}"
+  cp -a "${COPILOT_RUNTIME_SOURCE}/." "${COPILOT_RUNTIME_DEST}/"
+  test -f "${COPILOT_RUNTIME_DEST}/@github/copilot/sdk/index.js"
+
   EXPECTED_GLIBC_VERSION="${EXPECTED_GLIBC_VERSION}" EXPECTED_GLIBCXX_VERSION="${GLIBCXX_VERSION}" SEARCH_PATH="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}" ./build/azure-pipelines/linux/verify-glibc-requirements.sh
 
   # if [[ -n "${VERIFY_CXX11}" ]]; then

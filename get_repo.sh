@@ -27,26 +27,35 @@ if [[ -z "${RELEASE_VERSION}" ]]; then
     fi
   fi
 
-  TIME_PATCH=$( printf "%04d" $(($(date +%-j) * 24 + $(date +%-H))) )
+  # The old scheme appended a zero-padded build counter to the upstream patch
+  # number (for example 1.136.0 + 5945 -> 1.136.05945).  That is not valid
+  # SemVer: numeric identifiers cannot contain leading zeroes.  Several
+  # language extensions reject it before they start their language servers.
+  # Keep the upstream patch and hourly build counter in one numeric patch
+  # component instead, so the result is valid (1.136.5945 for 1.136.0).
+  TIME_PATCH=$(($(date +%-j) * 24 + $(date +%-H)))
+  MS_PATCH="${MS_TAG##*.}"
+  RELEASE_PATCH=$((10#${MS_PATCH} * 10000 + TIME_PATCH))
+  RELEASE_BASE="${MS_TAG%.*}"
 
   if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
-    RELEASE_VERSION="${MS_TAG}${TIME_PATCH}-insider"
+    RELEASE_VERSION="${RELEASE_BASE}.${RELEASE_PATCH}-insider"
   else
-    RELEASE_VERSION="${MS_TAG}${TIME_PATCH}"
+    RELEASE_VERSION="${RELEASE_BASE}.${RELEASE_PATCH}"
   fi
 else
   if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
-    if [[ "${RELEASE_VERSION}" =~ ^([0-9]+\.[0-9]+\.[0-5])[0-9]+-insider$ ]];
+    if [[ "${RELEASE_VERSION}" =~ ^([0-9]+\.[0-9]+)\.([0-9]+)-insider$ ]];
     then
-      MS_TAG="${BASH_REMATCH[1]}"
+      MS_TAG="${BASH_REMATCH[1]}.$((10#${BASH_REMATCH[2]} / 10000))"
     else
       echo "Error: Bad RELEASE_VERSION: ${RELEASE_VERSION}"
       exit 1
     fi
   else
-    if [[ "${RELEASE_VERSION}" =~ ^([0-9]+\.[0-9]+\.[0-5])[0-9]+$ ]];
+    if [[ "${RELEASE_VERSION}" =~ ^([0-9]+\.[0-9]+)\.([0-9]+)$ ]];
     then
-      MS_TAG="${BASH_REMATCH[1]}"
+      MS_TAG="${BASH_REMATCH[1]}.$((10#${BASH_REMATCH[2]} / 10000))"
     else
       echo "Error: Bad RELEASE_VERSION: ${RELEASE_VERSION}"
       exit 1

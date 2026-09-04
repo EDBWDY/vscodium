@@ -362,6 +362,7 @@ jobs:
           test -s "${reh[0]}.sha256"
           test -s "${reh[0]}.sha1"
           tar -tzf "${reh[0]}" >/dev/null
+          tar -tzf "${reh[0]}" | grep -Fx './extensions/copilot/node_modules/@github/copilot/sdk/index.js'
           echo "Verified ${reh[0]}"
 
       - name: Upload Linux x64 REH
