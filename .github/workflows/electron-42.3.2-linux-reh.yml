@@ -283,7 +283,9 @@ jobs:
       - name: Archive compiled VS Code tree
         run: |
           find vscode -type f -not -path '*/node_modules/*' -not -path 'vscode/.build/node/*' -not -path 'vscode/.git/*' > vscode.txt
+          test -d vscode/.build/extensions/copilot/node_modules/@github/copilot/sdk
           echo 'vscode/.build/extensions/node_modules' >> vscode.txt
+          echo 'vscode/.build/extensions/copilot/node_modules' >> vscode.txt
           echo 'vscode/.git' >> vscode.txt
           tar -czf vscode.tar.gz -T vscode.txt
           test -s vscode.tar.gz
