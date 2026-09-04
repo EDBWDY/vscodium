@@ -298,6 +298,7 @@ jobs:
       RELEASE_VERSION: ${{ needs.compile.outputs.RELEASE_VERSION }}
       SHOULD_BUILD_REH: 'yes'
       SHOULD_BUILD_REH_WEB: 'no'
+      SKIP_REH_MINIFY: 'yes'
       VSCODE_ARCH: x64
       npm_config_arch: x64
 
