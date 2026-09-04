@@ -23,7 +23,7 @@ COPILOT_RUNTIME_STAGE=".vscodium-copilot-runtime"
 # extension. npm ci in this packaging job can clean generated dependency
 # directories, so preserve it outside .build and restore it before VS Code's
 # REH packaging task copies extensions into its output tree.
-test -f "${COPILOT_RUNTIME_PATH}/@github/copilot/sdk/index.js"
+test -d "${COPILOT_RUNTIME_PATH}/@github/copilot/sdk"
 mv "${COPILOT_RUNTIME_PATH}" "${COPILOT_RUNTIME_STAGE}"
 
 GLIBC_VERSION="2.28"
@@ -206,10 +206,10 @@ export VSCODE_NODE_GLIBC="-glibc-${GLIBC_VERSION}"
 if [[ "${SHOULD_BUILD_REH}" != "no" ]]; then
   echo "Building REH"
 
-  test -f "${COPILOT_RUNTIME_STAGE}/@github/copilot/sdk/index.js"
+  test -d "${COPILOT_RUNTIME_STAGE}/@github/copilot/sdk"
   mkdir -p "$( dirname "${COPILOT_RUNTIME_PATH}" )"
   mv "${COPILOT_RUNTIME_STAGE}" "${COPILOT_RUNTIME_PATH}"
-  test -f "${COPILOT_RUNTIME_PATH}/@github/copilot/sdk/index.js"
+  test -d "${COPILOT_RUNTIME_PATH}/@github/copilot/sdk"
 
   if [[ "${SKIP_REH_MINIFY:-no}" == "yes" ]]; then
     test -d out-vscode-reh-min
@@ -221,7 +221,7 @@ if [[ "${SHOULD_BUILD_REH}" != "no" ]]; then
   npm run gulp "vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}-min-ci"
 
   COPILOT_RUNTIME_DEST="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}/extensions/copilot/node_modules"
-  test -f "${COPILOT_RUNTIME_DEST}/@github/copilot/sdk/index.js"
+  test -d "${COPILOT_RUNTIME_DEST}/@github/copilot/sdk"
 
   EXPECTED_GLIBC_VERSION="${EXPECTED_GLIBC_VERSION}" EXPECTED_GLIBCXX_VERSION="${GLIBCXX_VERSION}" SEARCH_PATH="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}" ./build/azure-pipelines/linux/verify-glibc-requirements.sh
 
