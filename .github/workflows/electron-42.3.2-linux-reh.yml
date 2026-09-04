@@ -221,6 +221,14 @@ jobs:
           cd vscode
           "$RUNNER_TEMP/run-diagnostic-stage.sh" "compile-non-native-extensions-build" npm run gulp compile-non-native-extensions-build
 
+      - name: Core CI - Compile Copilot extension
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          VSCODE_PUBLISH_COUNTER: '1'
+        run: |
+          cd vscode
+          "$RUNNER_TEMP/run-diagnostic-stage.sh" "compile-copilot-extension-build" npm run gulp compile-copilot-extension-build
+
       - name: Core CI - Compile extension media
         env:
           NODE_OPTIONS: --max-old-space-size=8192
