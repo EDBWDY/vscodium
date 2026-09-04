@@ -2,9 +2,6 @@ name: Electron 42.3.2 - Windows x64
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - electron-42.3.2
 
 permissions:
   contents: read
