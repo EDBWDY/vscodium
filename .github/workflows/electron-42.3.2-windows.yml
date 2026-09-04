@@ -167,6 +167,11 @@ jobs:
           $certificatePath = Join-Path $appxDir 'vscodium-context-menu.cer'
           Export-Certificate -Cert $certificate -FilePath $certificatePath | Out-Null
           Import-Certificate -FilePath $certificatePath -CertStoreLocation 'Cert:\CurrentUser\TrustedPeople' | Out-Null
+          # `signtool verify /pa` evaluates the trusted-root chain rather than
+          # the per-user TrustedPeople store used by the shipped installer.
+          # This is a disposable GitHub runner, so trust the ephemeral build
+          # certificate locally only for the verification step below.
+          Import-Certificate -FilePath $certificatePath -CertStoreLocation 'Cert:\LocalMachine\Root' | Out-Null
 
           $appxPath = Join-Path $appxDir "code_$env:VSCODE_ARCH.appx"
           makeappx pack `
