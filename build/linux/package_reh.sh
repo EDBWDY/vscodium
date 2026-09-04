@@ -195,7 +195,14 @@ export VSCODE_NODE_GLIBC="-glibc-${GLIBC_VERSION}"
 
 if [[ "${SHOULD_BUILD_REH}" != "no" ]]; then
   echo "Building REH"
-  npm run gulp minify-vscode-reh
+
+  if [[ "${SKIP_REH_MINIFY:-no}" == "yes" ]]; then
+    test -d out-vscode-reh-min
+    echo "Reusing prebuilt out-vscode-reh-min"
+  else
+    npm run gulp minify-vscode-reh
+  fi
+
   npm run gulp "vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}-min-ci"
 
   EXPECTED_GLIBC_VERSION="${EXPECTED_GLIBC_VERSION}" EXPECTED_GLIBCXX_VERSION="${GLIBCXX_VERSION}" SEARCH_PATH="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}" ./build/azure-pipelines/linux/verify-glibc-requirements.sh
