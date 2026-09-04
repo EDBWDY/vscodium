@@ -12,9 +12,9 @@ if [[ "${SHOULD_BUILD}" == "yes" ]]; then
 
   # The current-upstream path deliberately skips most revision-specific
   # VSCodium patches. Re-apply the small, policy-only signature patch here so
-  # this build keeps VSCodium's normal behaviour: extension signature
-  # verification is not performed.
-  if [[ "${VSCODIUM_LATEST_UPSTREAM}" == "yes" && "${OS_NAME}" == "windows" ]]; then
+  # every current-upstream target keeps VSCodium's normal behaviour: extension
+  # signature verification is not performed.
+  if [[ "${VSCODIUM_LATEST_UPSTREAM}" == "yes" ]]; then
     ./build/electron/apply-vscodium-signature-policy.sh
   fi
 
