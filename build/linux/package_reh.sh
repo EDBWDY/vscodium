@@ -220,6 +220,17 @@ if [[ "${SHOULD_BUILD_REH}" != "no" ]]; then
 
   npm run gulp "vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}-min-ci"
 
+  # Node now exposes `navigator` globally. The built-in migration guard throws
+  # when an extension still accesses it, but current OpenAI/Codex releases do
+  # so during activation. Enable VS Code's own compatibility switch in the
+  # packaged remote extension host so this does not crash the remote host.
+  REH_EXTENSION_HOST="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}/out/vs/workbench/api/node/extensionHostProcess.js"
+  test -f "${REH_EXTENSION_HOST}"
+  grep -Fq 'qI.supportGlobalNavigator||Object.defineProperty(globalThis,"navigator",{get:()=>{ba(new ya("navigator is now a global in nodejs, please see https://aka.ms/vscode-extensions/navigator for additional info on this error."))}});' "${REH_EXTENSION_HOST}"
+  sed -i 's@qI.supportGlobalNavigator||Object.defineProperty(globalThis,"navigator",{get:()=>{ba(new ya("navigator is now a global in nodejs, please see https://aka.ms/vscode-extensions/navigator for additional info on this error."))}});@qI.supportGlobalNavigator=true;@' "${REH_EXTENSION_HOST}"
+  grep -Fq 'qI.supportGlobalNavigator=true;' "${REH_EXTENSION_HOST}"
+  ! grep -Fq 'navigator is now a global in nodejs' "${REH_EXTENSION_HOST}"
+
   COPILOT_RUNTIME_DEST="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}/extensions/copilot/node_modules"
   test -f "${COPILOT_RUNTIME_DEST}/@github/copilot/sdk/index.js"
 
