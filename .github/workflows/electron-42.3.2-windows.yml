@@ -259,17 +259,29 @@ jobs:
             }
           }
 
+          function Invoke-InstallerProbe([string] $setup, [string] $installRoot, [string] $kind) {
+            $logPath = Join-Path $env:RUNNER_TEMP "vscodium-$kind-installer.log"
+            $process = Start-Process -FilePath $setup -ArgumentList '/SP-', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$installRoot", "/LOG=$logPath" -PassThru
+            if (-not $process.WaitForExit(180000)) {
+              Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+              if (Test-Path -LiteralPath $logPath) { Get-Content -LiteralPath $logPath -Tail 100 }
+              throw "$kind installer did not exit within three minutes."
+            }
+            if ($process.ExitCode -ne 0) {
+              if (Test-Path -LiteralPath $logPath) { Get-Content -LiteralPath $logPath -Tail 100 }
+              throw "$kind installer failed with exit code $($process.ExitCode)."
+            }
+          }
+
           $userRoot = Join-Path $env:RUNNER_TEMP 'vscodium-user-installer-probe'
-          $userProcess = Start-Process -FilePath $userSetup -ArgumentList '/SP-', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$userRoot" -Wait -PassThru
-          if ($userProcess.ExitCode -ne 0) { throw "User installer failed with exit code $($userProcess.ExitCode)" }
+          Invoke-InstallerProbe $userSetup $userRoot 'user'
           Assert-InstalledPayload $userRoot 'User'
           if (-not (Get-AppxPackage -Name 'VSCodium.VSCodium' -ErrorAction SilentlyContinue)) {
             throw 'User installer did not register the VSCodium context-menu APPX.'
           }
 
           $systemRoot = Join-Path $env:RUNNER_TEMP 'vscodium-system-installer-probe'
-          $systemProcess = Start-Process -FilePath $systemSetup -ArgumentList '/SP-', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$systemRoot" -Wait -PassThru
-          if ($systemProcess.ExitCode -ne 0) { throw "System installer failed with exit code $($systemProcess.ExitCode)" }
+          Invoke-InstallerProbe $systemSetup $systemRoot 'system'
           Assert-InstalledPayload $systemRoot 'System'
           if (-not (Get-AppxPackage -Name 'VSCodium.VSCodium' -ErrorAction SilentlyContinue)) {
             throw 'System installer did not register the VSCodium context-menu APPX.'
