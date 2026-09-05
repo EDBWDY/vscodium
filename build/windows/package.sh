@@ -35,6 +35,19 @@ node build/lib/policies/policyGenerator.ts build/lib/policies/policyData.jsonc w
 
 npm run gulp "vscode-win32-${VSCODE_ARCH}-min-packing"
 
+# The Copilot SDK entrypoints are intentionally excluded from VS Code's
+# generic extension stream by build/.moduleignore, but the built-in Copilot
+# extension loads them directly at runtime.  Restore the complete SDK tree
+# after the normal min-packing step, before the desktop and installer assets
+# consume .build/extensions.
+copilot_sdk_source='extensions/copilot/node_modules/@github/copilot/sdk'
+copilot_sdk_output='.build/extensions/copilot/node_modules/@github/copilot/sdk'
+test -f "${copilot_sdk_source}/index.js"
+mkdir -p "$(dirname "${copilot_sdk_output}")"
+rm -rf "${copilot_sdk_output}"
+cp -a "${copilot_sdk_source}" "${copilot_sdk_output}"
+test -f "${copilot_sdk_output}/index.js"
+
 . ../build_cli.sh
 
 if [[ "${VSCODE_ARCH}" == "x64" ]]; then

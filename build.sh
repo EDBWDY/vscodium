@@ -32,6 +32,19 @@ if [[ "${SHOULD_BUILD}" == "yes" ]]; then
   # CLI, remote-host, or secondary packaging stages.
   if [[ "${VSCODIUM_LATEST_UPSTREAM}" == "yes" && "${OS_NAME}" == "windows" ]]; then
     npm run gulp compile-copilot-extension-build
+
+    # build/.moduleignore omits the Copilot SDK from the generic extension
+    # stream, but the built-in desktop extension imports it at runtime.  The
+    # Electron 42 Windows workflow packages directly from .build here, so the
+    # SDK must be restored in this branch before min-ci consumes that tree.
+    copilot_sdk_source='extensions/copilot/node_modules/@github/copilot/sdk'
+    copilot_sdk_output='.build/extensions/copilot/node_modules/@github/copilot/sdk'
+    test -f "${copilot_sdk_source}/index.js"
+    mkdir -p "$(dirname "${copilot_sdk_output}")"
+    rm -rf "${copilot_sdk_output}"
+    cp -a "${copilot_sdk_source}" "${copilot_sdk_output}"
+    test -f "${copilot_sdk_output}/index.js"
+
     npm run copy-policy-dto --prefix build
     node build/lib/policies/policyGenerator.ts build/lib/policies/policyData.jsonc win32
     npm run gulp "vscode-win32-${VSCODE_ARCH}-min-ci"
