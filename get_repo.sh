@@ -28,14 +28,18 @@ if [[ -z "${RELEASE_VERSION}" ]]; then
   fi
 
   # The old scheme appended a zero-padded build counter to the upstream patch
-  # number (for example 1.136.0 + 5945 -> 1.136.05945).  That is not valid
-  # SemVer: numeric identifiers cannot contain leading zeroes.  Several
+  # number (for example 1.136.0 + 5945 -> 1.136.05945). That is not valid
+  # SemVer: numeric identifiers cannot contain leading zeroes. Several
   # language extensions reject it before they start their language servers.
-  # Keep the upstream patch and hourly build counter in one numeric patch
-  # component instead, so the result is valid (1.136.5945 for 1.136.0).
-  TIME_PATCH=$(($(date +%-j) * 24 + $(date +%-H)))
+  #
+  # Keep the upstream patch in one numeric component with a fixed suffix.
+  # This produces a valid version and, importantly, gives every rebuild of
+  # the same upstream source the same release version. The 9999 suffix also
+  # keeps the deterministic 1.136.0 build newer than prior time-based builds
+  # such as 1.136.5954.
+  RELEASE_SUFFIX=9999
   MS_PATCH="${MS_TAG##*.}"
-  RELEASE_PATCH=$((10#${MS_PATCH} * 10000 + TIME_PATCH))
+  RELEASE_PATCH=$((10#${MS_PATCH} * 10000 + RELEASE_SUFFIX))
   RELEASE_BASE="${MS_TAG%.*}"
 
   if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
