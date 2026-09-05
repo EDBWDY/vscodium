@@ -1,20 +1,29 @@
 diff --git a/build/gulpfile.vscode.win32.ts b/build/gulpfile.vscode.win32.ts
-index 1f0f2d9..1d047cd 100644
+index 1f0f2d9..33150a2 100644
 --- a/build/gulpfile.vscode.win32.ts
 +++ b/build/gulpfile.vscode.win32.ts
-@@ -116,6 +116,7 @@ function buildWin32Setup(arch: string, target: string): task.CallbackTask {
- 		if (quality === 'stable' || quality === 'insider') {
+@@ -113,11 +113,12 @@ function buildWin32Setup(arch: string, target: string): task.CallbackTask {
+ 			Quality: quality
+ 		};
+ 
+-		if (quality === 'stable' || quality === 'insider') {
++		const ctxMenu = (product as { win32ContextMenu?: Record<string, { clsid: string }> }).win32ContextMenu;
++		if (quality === 'stable' || quality === 'insider' || Boolean(ctxMenu?.[arch])) {
  			definitions['AppxPackage'] = `${quality === 'stable' ? 'code' : 'code_insider'}_${arch}.appx`;
  			definitions['AppxPackageDll'] = `${quality === 'stable' ? 'code' : 'code_insider'}_explorer_command_${arch}.dll`;
 +			definitions['AppxPackageCertificate'] = 'vscodium-context-menu.cer';
  			definitions['AppxPackageName'] = `${product.win32AppUserModelId}`;
- 			const ctxMenu = (product as { win32ContextMenu?: Record<string, { clsid: string }> }).win32ContextMenu;
+-			const ctxMenu = (product as { win32ContextMenu?: Record<string, { clsid: string }> }).win32ContextMenu;
  			if (ctxMenu && ctxMenu[arch]) {
+ 				definitions['FileExplorerContextMenuCLSID'] = ctxMenu[arch].clsid;
+ 			}
 diff --git a/build/win32/code.iss b/build/win32/code.iss
 index 5b43061..dacd8d9 100644
 --- a/build/win32/code.iss
 +++ b/build/win32/code.iss
-@@ -47,5 +47,5 @@
+@@ -45,7 +45,7 @@ SignTool=esrp
+ #endif
+ 
  #if "user" == InstallTarget
 -DefaultDirName={userpf}\{#DirName}
 +DefaultDirName={localappdata}\Programs\{#DirName}
