@@ -10,6 +10,7 @@ on:
       - '.github/workflows/electron-42.3.2-linux-reh.yml'
       - '.github/workflows/electron-42.3.2-release.yml'
       - 'build.sh'
+      - 'build/windows/**'
       - 'prepare_vscode.sh'
       - 'build/linux/package_reh.sh'
       - 'build/electron/**'
@@ -229,6 +230,50 @@ jobs:
           test -s "assets/${APP_NAME}-win32-${VSCODE_ARCH}-${RELEASE_VERSION}.zip"
           test -s "assets/${APP_NAME}Setup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
           test -s "assets/${APP_NAME}UserSetup-${VSCODE_ARCH}-${RELEASE_VERSION}.exe"
+
+      - name: Install and validate Windows EXE payloads
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $releaseVersion = $env:RELEASE_VERSION
+          $assetRoot = Join-Path $env:GITHUB_WORKSPACE 'assets'
+          $userSetup = Join-Path $assetRoot "VSCodiumUserSetup-x64-$releaseVersion.exe"
+          $systemSetup = Join-Path $assetRoot "VSCodiumSetup-x64-$releaseVersion.exe"
+
+          function Assert-InstalledPayload([string] $installRoot, [string] $kind) {
+            $appxRoot = Join-Path $installRoot 'resources\app\appx'
+            $required = @(
+              (Join-Path $appxRoot 'code_x64.appx'),
+              (Join-Path $appxRoot 'code_explorer_command_x64.dll'),
+              (Join-Path $appxRoot 'vscodium-context-menu.cer'),
+              (Join-Path $installRoot 'resources\app\extensions\copilot\node_modules\@github\copilot\sdk\index.js')
+            )
+            foreach ($path in $required) {
+              if (-not (Test-Path -LiteralPath $path)) {
+                throw "$kind installer omitted required payload: $path"
+              }
+            }
+            $signature = Get-AuthenticodeSignature -LiteralPath (Join-Path $appxRoot 'code_x64.appx')
+            if ($signature.Status -ne 'Valid') {
+              throw "$kind installer produced an APPX with invalid signature: $($signature.Status)"
+            }
+          }
+
+          $userRoot = Join-Path $env:RUNNER_TEMP 'vscodium-user-installer-probe'
+          $userProcess = Start-Process -FilePath $userSetup -ArgumentList '/SP-', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$userRoot" -Wait -PassThru
+          if ($userProcess.ExitCode -ne 0) { throw "User installer failed with exit code $($userProcess.ExitCode)" }
+          Assert-InstalledPayload $userRoot 'User'
+          if (-not (Get-AppxPackage -Name 'VSCodium.VSCodium' -ErrorAction SilentlyContinue)) {
+            throw 'User installer did not register the VSCodium context-menu APPX.'
+          }
+
+          $systemRoot = Join-Path $env:RUNNER_TEMP 'vscodium-system-installer-probe'
+          $systemProcess = Start-Process -FilePath $systemSetup -ArgumentList '/SP-', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$systemRoot" -Wait -PassThru
+          if ($systemProcess.ExitCode -ne 0) { throw "System installer failed with exit code $($systemProcess.ExitCode)" }
+          Assert-InstalledPayload $systemRoot 'System'
+          if (-not (Get-AppxPackage -Name 'VSCodium.VSCodium' -ErrorAction SilentlyContinue)) {
+            throw 'System installer did not register the VSCodium context-menu APPX.'
+          }
 
       - name: Upload Windows installer packages
         uses: actions/upload-artifact@v4
