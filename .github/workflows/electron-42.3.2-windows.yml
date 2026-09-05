@@ -189,6 +189,19 @@ jobs:
             throw "signtool failed to verify $appxPath"
           }
 
+          # The AppX manifest activates this DLL from ExternalLocation. Explorer
+          # rejects an unsigned COM server even when the AppX itself is signed.
+          $explorerDllPath = Join-Path $appxDir "code_explorer_command_$env:VSCODE_ARCH.dll"
+          & signtool sign /fd SHA256 /sha1 $certificate.Thumbprint /s My $explorerDllPath
+          if ($LASTEXITCODE -ne 0) {
+            throw "signtool failed to sign $explorerDllPath"
+          }
+
+          & signtool verify /pa /all $explorerDllPath
+          if ($LASTEXITCODE -ne 0) {
+            throw "signtool failed to verify $explorerDllPath"
+          }
+
           Remove-Item "$appxDir\manifest" -Recurse -Force
 
           if (-not (Test-Path "$appxDir\code_$env:VSCODE_ARCH.appx")) {
