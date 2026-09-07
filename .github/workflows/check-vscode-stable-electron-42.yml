@@ -2,8 +2,8 @@ name: Check VS Code Stable for Electron 42 build
 
 on:
   schedule:
-    # Check four times per day, away from the busiest top-of-hour schedule slot.
-    - cron: '23 */6 * * *'
+    # Check once a week, away from the busiest top-of-hour schedule slot.
+    - cron: '23 0 * * 1'
   workflow_dispatch:
 
 permissions:
