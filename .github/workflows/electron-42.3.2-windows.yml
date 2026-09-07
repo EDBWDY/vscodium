@@ -61,11 +61,13 @@ jobs:
       - name: Fetch pinned VS Code source
         run: ./get_repo.sh
 
-      - name: Verify pinned upstream
+      - name: Verify selected upstream
         run: |
-          test "$MS_TAG" = "1.136.0"
-          test "$MS_COMMIT" = "520fb30b2d3d324b4cb2342f6e88e2cd93751de1"
-          echo "Pinned VS Code: $MS_TAG ($MS_COMMIT)"
+          test -n "$MS_TAG"
+          test -n "$MS_COMMIT"
+          test "$(jq -r '.tag' upstream/stable.json)" = "$MS_TAG"
+          test "$(jq -r '.commit' upstream/stable.json)" = "$MS_COMMIT"
+          echo "Selected VS Code: $MS_TAG ($MS_COMMIT)"
 
       - name: Build portable VSCodium with Electron 42.3.2
         run: |

@@ -1,6 +1,7 @@
 name: Electron 42.3.2 - Publish Windows and Linux REH
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - electron-42.3.2
