@@ -240,7 +240,18 @@ if [[ "${SHOULD_BUILD_REH}" != "no" ]]; then
   REH_ROOT="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}"
   cp ../build/linux/preserve_reh_marketplace.js "${REH_ROOT}/bin/"
   test -f "${REH_ROOT}/bin/vscodium-preserve-marketplace.js"
-  grep -Fq 'vscodium-preserve-marketplace.js' "${REH_ROOT}/bin/code-server"
+
+  # The current gulp REH packaging task generates bin/code-server from its
+  # launcher template after applying source patches. Patch that final launcher
+  # directly so the helper is guaranteed to be part of the archived REH.
+  REH_LAUNCHER="${REH_ROOT}/bin/code-server"
+  test -f "${REH_LAUNCHER}"
+  sed -i '/"\$ROOT\/node".*server-main\.js/ i\
+if [ -f "$ROOT/bin/vscodium-preserve-marketplace.js" ]; then\
+  "$ROOT/node" "$ROOT/bin/vscodium-preserve-marketplace.js" "$ROOT" || true\
+fi\
+' "${REH_LAUNCHER}"
+  grep -Fq 'vscodium-preserve-marketplace.js' "${REH_LAUNCHER}"
 
   EXPECTED_GLIBC_VERSION="${EXPECTED_GLIBC_VERSION}" EXPECTED_GLIBCXX_VERSION="${GLIBCXX_VERSION}" SEARCH_PATH="${REH_ROOT}" ./build/azure-pipelines/linux/verify-glibc-requirements.sh
 
