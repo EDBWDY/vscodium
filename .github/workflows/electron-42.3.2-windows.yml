@@ -74,13 +74,19 @@ jobs:
         run: |
           git -C vscode apply --ignore-whitespace --check ../patches/02-preserve-marketplace-selection-in-installer.patch
           git -C vscode apply --ignore-whitespace ../patches/02-preserve-marketplace-selection-in-installer.patch
-          cp build/windows/preserve-marketplace-selection.ps1 vscode/build/win32/
 
       - name: Build portable VSCodium with Electron 42.3.2
         run: |
           # Match the SDK visibility used by VS Code's Windows CI.
           export PATH="/c/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64:$PATH"
           ./build.sh
+
+      # build.sh recreates vscode/build, so this installer-only helper must be
+      # staged after the portable build rather than before it.
+      - name: Stage installer Marketplace helper
+        run: |
+          cp build/windows/preserve-marketplace-selection.ps1 vscode/build/win32/
+          test -f vscode/build/win32/vscodium-preserve-marketplace-selection.ps1
 
       - name: Verify portable build and signature policy
         run: |
@@ -233,6 +239,7 @@ jobs:
 
       - name: Build System EXE
         run: |
+          test -f vscode/build/win32/vscodium-preserve-marketplace-selection.ps1
           cd vscode
           npm run gulp "vscode-win32-${VSCODE_ARCH}-system-setup"
           cd ..
