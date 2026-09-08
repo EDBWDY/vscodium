@@ -1,0 +1,62 @@
+diff --git a/build/win32/code.iss b/build/win32/code.iss
+--- a/build/win32/code.iss
++++ b/build/win32/code.iss
+@@ -93,6 +93,7 @@ Source: "bin\{#ApplicationName}.cmd"; DestDir: "{code:GetDestDir}\bin"; DestName: "{code:GetBinDirApplicationCmdFilename}"; Flags: ignoreversion
+ Source: "bin\{#ApplicationName}.cmd"; DestDir: "{code:GetDestDir}\bin"; DestName: "{code:GetBinDirApplicationCmdFilename}"; Flags: ignoreversion
+ Source: "bin\{#ApplicationName}"; DestDir: "{code:GetDestDir}\bin"; DestName: "{code:GetBinDirApplicationFilename}"; Flags: ignoreversion
+-Source: "{#ProductJsonPath}"; DestDir: "{code:GetDestDir}\{#VersionedResourcesFolder}\resources\app"; Flags: ignoreversion
++Source: "{#RepoDir}\build\win32\vscodium-preserve-marketplace-selection.ps1"; Flags: dontcopy
++Source: "{#ProductJsonPath}"; DestDir: "{code:GetDestDir}\{#VersionedResourcesFolder}\resources\app"; Flags: ignoreversion; BeforeInstall: CaptureMarketplace; AfterInstall: RestoreMarketplace
+ #ifdef AppxPackageName
+ Source: "appx\{#AppxPackage}"; DestDir: "{code:GetDestDir}\{#VersionedResourcesFolder}\appx"; BeforeInstall: RemoveAppxPackage; Flags: ignoreversion; Check: ShouldUseWindows11ContextMenu
+ Source: "appx\{#AppxPackageDll}"; DestDir: "{code:GetDestDir}\{#VersionedResourcesFolder}\appx"; AfterInstall: AddAppxPackage; Flags: ignoreversion; Check: ShouldUseWindows11ContextMenu
+@@ -1306,7 +1307,49 @@ Root: {#EnvironmentRootKey}; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#ApplicationName}.exe"; ValueType: string; ValueName: ""; ValueData: "{app}\{#ExeBasename}.exe"; Flags: uninsdeletekey
+ ; Remove the "Path" value previously written here; ShellExecute appends it to the launched process PATH, polluting the env. Default value above is enough to resolve `code` from Explorer/Run.
+ Root: {#EnvironmentRootKey}; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#ApplicationName}.exe"; ValueType: none; ValueName: "Path"; Flags: deletevalue
+ 
+ [Code]
++var
++  MarketplaceBackupPath: String;
++
++procedure CaptureMarketplace;
++var
++  ProductJsonPath: String;
++begin
++  ProductJsonPath := ExpandConstant('{code:GetDestDir}\{#VersionedResourcesFolder}\resources\app\product.json');
++  MarketplaceBackupPath := ExpandConstant('{tmp}\vscodium-product-before-install.json');
++  if FileExists(ProductJsonPath) then begin
++    DeleteFile(MarketplaceBackupPath);
++    if FileCopy(ProductJsonPath, MarketplaceBackupPath, False) then
++      Log('Saved existing product.json for Marketplace preservation.')
++    else
++      Log('Could not save existing product.json; keeping packaged Marketplace configuration.');
++  end;
++end;
++
++procedure RestoreMarketplace;
++var
++  ProductJsonPath: String;
++  PowerShellPath: String;
++  Parameters: String;
++  ResultCode: Integer;
++begin
++  if not FileExists(MarketplaceBackupPath) then exit;
++
++  ProductJsonPath := ExpandConstant('{code:GetDestDir}\{#VersionedResourcesFolder}\resources\app\product.json');
++  ExtractTemporaryFile('vscodium-preserve-marketplace-selection.ps1');
++  PowerShellPath := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe');
++  Parameters := '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ' + AddQuotes(ExpandConstant('{tmp}\vscodium-preserve-marketplace-selection.ps1')) + ' -PreviousProduct ' + AddQuotes(MarketplaceBackupPath) + ' -InstalledProduct ' + AddQuotes(ProductJsonPath);
++
++  if not Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
++    Log('Marketplace preservation script could not be started.')
++  else if ResultCode <> 0 then
++    Log('Marketplace preservation script exited with code ' + IntToStr(ResultCode) + '.')
++  else
++    Log('Marketplace selection preservation completed.');
++
++  DeleteFile(MarketplaceBackupPath);
++end;
++
+ // Imports MultiByteToWideChar to decode UTF-8 bytes (LoadStringFromFile returns raw bytes) into a Unicode string.
+ function MultiByteToWideChar(CodePage: Cardinal; dwFlags: Cardinal; const lpMultiByteStr: AnsiString; cbMultiByte: Integer; lpWideCharStr: String; cchWideChar: Integer): Integer;
+   external 'MultiByteToWideChar@kernel32.dll stdcall';

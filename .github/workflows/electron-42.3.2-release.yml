@@ -12,6 +12,8 @@ on:
       - 'build.sh'
       - 'prepare_vscode.sh'
       - 'build/linux/package_reh.sh'
+      - 'build/linux/preserve_reh_marketplace.js'
+      - 'build/windows/preserve-marketplace-selection.ps1'
       - 'build/electron/**'
       - 'patches/**'
       - 'product.json'

@@ -12,6 +12,7 @@ on:
       - 'build.sh'
       - 'prepare_vscode.sh'
       - 'build/linux/package_reh.sh'
+      - 'build/windows/preserve-marketplace-selection.ps1'
       - 'build/electron/**'
       - 'patches/**'
       - 'product.json'
@@ -68,6 +69,12 @@ jobs:
           test "$(jq -r '.tag' upstream/stable.json)" = "$MS_TAG"
           test "$(jq -r '.commit' upstream/stable.json)" = "$MS_COMMIT"
           echo "Selected VS Code: $MS_TAG ($MS_COMMIT)"
+
+      - name: Preserve an existing local Marketplace override on upgrade
+        run: |
+          git -C vscode apply --ignore-whitespace --check ../patches/02-preserve-marketplace-selection-in-installer.patch
+          git -C vscode apply --ignore-whitespace ../patches/02-preserve-marketplace-selection-in-installer.patch
+          cp build/windows/preserve-marketplace-selection.ps1 vscode/build/win32/
 
       - name: Build portable VSCodium with Electron 42.3.2
         run: |

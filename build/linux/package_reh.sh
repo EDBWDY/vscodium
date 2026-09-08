@@ -234,7 +234,15 @@ if [[ "${SHOULD_BUILD_REH}" != "no" ]]; then
   COPILOT_RUNTIME_DEST="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}/extensions/copilot/node_modules"
   test -f "${COPILOT_RUNTIME_DEST}/@github/copilot/sdk/index.js"
 
-  EXPECTED_GLIBC_VERSION="${EXPECTED_GLIBC_VERSION}" EXPECTED_GLIBCXX_VERSION="${GLIBCXX_VERSION}" SEARCH_PATH="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}" ./build/azure-pipelines/linux/verify-glibc-requirements.sh
+  # The REH is installed into a new version directory on every upgrade.  Ship
+  # a tiny launcher helper so an already user-selected Microsoft Marketplace
+  # is inherited once, while new servers still use Open VSX from product.json.
+  REH_ROOT="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}"
+  cp ../build/linux/preserve_reh_marketplace.js "${REH_ROOT}/bin/"
+  test -f "${REH_ROOT}/bin/vscodium-preserve-marketplace.js"
+  grep -Fq 'vscodium-preserve-marketplace.js' "${REH_ROOT}/bin/code-server"
+
+  EXPECTED_GLIBC_VERSION="${EXPECTED_GLIBC_VERSION}" EXPECTED_GLIBCXX_VERSION="${GLIBCXX_VERSION}" SEARCH_PATH="${REH_ROOT}" ./build/azure-pipelines/linux/verify-glibc-requirements.sh
 
   # if [[ -n "${VERIFY_CXX11}" ]]; then
   #   SEARCH_PATH="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}" ../build/linux/verify_cxx11_requirements.sh
