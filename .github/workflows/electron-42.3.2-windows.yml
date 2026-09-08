@@ -85,7 +85,7 @@ jobs:
       # staged after the portable build rather than before it.
       - name: Stage installer Marketplace helper
         run: |
-          cp build/windows/preserve-marketplace-selection.ps1 vscode/build/win32/
+          cp build/windows/preserve-marketplace-selection.ps1 vscode/build/win32/vscodium-preserve-marketplace-selection.ps1
           test -f vscode/build/win32/vscodium-preserve-marketplace-selection.ps1
 
       - name: Verify portable build and signature policy

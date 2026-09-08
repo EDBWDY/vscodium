@@ -238,7 +238,7 @@ if [[ "${SHOULD_BUILD_REH}" != "no" ]]; then
   # a tiny launcher helper so an already user-selected Microsoft Marketplace
   # is inherited once, while new servers still use Open VSX from product.json.
   REH_ROOT="../vscode-reh-${VSCODE_PLATFORM}-${VSCODE_ARCH}"
-  cp ../build/linux/preserve_reh_marketplace.js "${REH_ROOT}/bin/"
+  cp ../build/linux/preserve_reh_marketplace.js "${REH_ROOT}/bin/vscodium-preserve-marketplace.js"
   test -f "${REH_ROOT}/bin/vscodium-preserve-marketplace.js"
 
   # The current gulp REH packaging task generates bin/code-server from its
