@@ -2,6 +2,15 @@ name: Electron 42.3.2 - Publish Windows and Linux REH
 
 on:
   workflow_dispatch:
+    inputs:
+      windows_run_id:
+        description: Successful Windows build run ID to publish with (manual publish only)
+        required: false
+        type: string
+      reh_run_id:
+        description: Successful Linux REH build run ID to publish with (manual publish only)
+        required: false
+        type: string
   push:
     branches:
       - electron-42.3.2
@@ -35,6 +44,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       LINUX_REH_WORKFLOW: Electron 42.3.2 - Linux x64 REH
       WINDOWS_WORKFLOW: Electron 42.3.2 - Windows x64
+      WINDOWS_RUN_ID_OVERRIDE: ${{ inputs.windows_run_id }}
+      REH_RUN_ID_OVERRIDE: ${{ inputs.reh_run_id }}
 
     steps:
       - uses: actions/checkout@v4
@@ -47,6 +58,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          if [[ -n "$WINDOWS_RUN_ID_OVERRIDE" || -n "$REH_RUN_ID_OVERRIDE" ]]; then
+            [[ -n "$WINDOWS_RUN_ID_OVERRIDE" && -n "$REH_RUN_ID_OVERRIDE" ]] || {
+              echo 'Both manual build run IDs are required together.' >&2
+              exit 1
+            }
+
+            for run_id in "$WINDOWS_RUN_ID_OVERRIDE" "$REH_RUN_ID_OVERRIDE"; do
+              conclusion="$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" --json conclusion --jq .conclusion)"
+              [[ "$conclusion" == success ]] || {
+                echo "Build run $run_id concluded: $conclusion" >&2
+                exit 1
+              }
+            done
+
+            echo "windows_run_id=$WINDOWS_RUN_ID_OVERRIDE" >> "$GITHUB_OUTPUT"
+            echo "reh_run_id=$REH_RUN_ID_OVERRIDE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           find_run() {
             local workflow="$1"
