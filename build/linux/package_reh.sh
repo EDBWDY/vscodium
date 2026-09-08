@@ -241,10 +241,10 @@ if [[ "${SHOULD_BUILD_REH}" != "no" ]]; then
   cp ../build/linux/preserve_reh_marketplace.js "${REH_ROOT}/bin/vscodium-preserve-marketplace.js"
   test -f "${REH_ROOT}/bin/vscodium-preserve-marketplace.js"
 
-  # The current gulp REH packaging task generates bin/code-server from its
+  # The current gulp REH packaging task generates the branded server launcher
   # launcher template after applying source patches. Patch that final launcher
   # directly so the helper is guaranteed to be part of the archived REH.
-  REH_LAUNCHER="${REH_ROOT}/bin/code-server"
+  REH_LAUNCHER="${REH_ROOT}/bin/${BINARY_NAME}-server"
   test -f "${REH_LAUNCHER}"
   sed -i '/"\$ROOT\/node".*server-main\.js/ i\
 if [ -f "$ROOT/bin/vscodium-preserve-marketplace.js" ]; then\
