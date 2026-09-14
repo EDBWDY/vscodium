@@ -9,7 +9,7 @@ if [[ "${CI_BUILD}" != "no" ]]; then
 fi
 
 if [[ -z "${RELEASE_VERSION}" ]]; then
-  if [[ "${VSCODE_LATEST}" == "yes" ]] || [[ ! -f "./upstream/${VSCODE_QUALITY}.json" ]]; then
+  if [[ "${VSCODE_LATEST}" == "yes" || "${VSCODIUM_LATEST_UPSTREAM}" == "yes" ]] || [[ ! -f "./upstream/${VSCODE_QUALITY}.json" ]]; then
     echo "Retrieve lastest version"
     UPDATE_INFO=$( curl --silent --fail "https://update.code.visualstudio.com/api/update/darwin/${VSCODE_QUALITY}/0000000000000000000000000000000000000000" )
   else

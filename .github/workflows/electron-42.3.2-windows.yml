@@ -66,8 +66,7 @@ jobs:
         run: |
           test -n "$MS_TAG"
           test -n "$MS_COMMIT"
-          test "$(jq -r '.tag' upstream/stable.json)" = "$MS_TAG"
-          test "$(jq -r '.commit' upstream/stable.json)" = "$MS_COMMIT"
+          test "$RELEASE_VERSION" = "$MS_TAG"
           echo "Selected VS Code: $MS_TAG ($MS_COMMIT)"
 
       - name: Preserve an existing local Marketplace override on upgrade
