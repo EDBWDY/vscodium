@@ -82,6 +82,11 @@ jobs:
           test -n "$MS_TAG"
           test -n "$MS_COMMIT"
           test "$RELEASE_VERSION" = "$MS_TAG"
+          test "$(git -C vscode remote get-url origin)" = 'https://github.com/Microsoft/vscode.git'
+          test "$(git -C vscode rev-parse HEAD)" = "$MS_COMMIT"
+          latest="$(curl --silent --fail 'https://update.code.visualstudio.com/api/update/darwin/stable/0000000000000000000000000000000000000000')"
+          test "$(jq -r '.name' <<<"$latest")" = "$MS_TAG"
+          test "$(jq -r '.version' <<<"$latest")" = "$MS_COMMIT"
           echo "Selected VS Code: $MS_TAG ($MS_COMMIT)"
 
       - name: Install compile diagnostics
