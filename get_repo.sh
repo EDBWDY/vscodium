@@ -27,39 +27,24 @@ if [[ -z "${RELEASE_VERSION}" ]]; then
     fi
   fi
 
-  # The old scheme appended a zero-padded build counter to the upstream patch
-  # number (for example 1.136.0 + 5945 -> 1.136.05945). That is not valid
-  # SemVer: numeric identifiers cannot contain leading zeroes. Several
-  # language extensions reject it before they start their language servers.
-  #
-  # Keep the upstream patch in one numeric component with a fixed suffix.
-  # This produces a valid version and, importantly, gives every rebuild of
-  # the same upstream source the same release version. The 9999 suffix also
-  # keeps the deterministic 1.136.0 build newer than prior time-based builds
-  # such as 1.136.5954.
-  RELEASE_SUFFIX=9999
-  MS_PATCH="${MS_TAG##*.}"
-  RELEASE_PATCH=$((10#${MS_PATCH} * 10000 + RELEASE_SUFFIX))
-  RELEASE_BASE="${MS_TAG%.*}"
-
   if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
-    RELEASE_VERSION="${RELEASE_BASE}.${RELEASE_PATCH}-insider"
+    RELEASE_VERSION="${MS_TAG}-insider"
   else
-    RELEASE_VERSION="${RELEASE_BASE}.${RELEASE_PATCH}"
+    RELEASE_VERSION="${MS_TAG}"
   fi
 else
   if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
-    if [[ "${RELEASE_VERSION}" =~ ^([0-9]+\.[0-9]+)\.([0-9]+)-insider$ ]];
+    if [[ "${RELEASE_VERSION}" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-insider$ ]];
     then
-      MS_TAG="${BASH_REMATCH[1]}.$((10#${BASH_REMATCH[2]} / 10000))"
+      MS_TAG="${BASH_REMATCH[1]}"
     else
       echo "Error: Bad RELEASE_VERSION: ${RELEASE_VERSION}"
       exit 1
     fi
   else
-    if [[ "${RELEASE_VERSION}" =~ ^([0-9]+\.[0-9]+)\.([0-9]+)$ ]];
+    if [[ "${RELEASE_VERSION}" =~ ^([0-9]+\.[0-9]+\.[0-9]+)$ ]];
     then
-      MS_TAG="${BASH_REMATCH[1]}.$((10#${BASH_REMATCH[2]} / 10000))"
+      MS_TAG="${BASH_REMATCH[1]}"
     else
       echo "Error: Bad RELEASE_VERSION: ${RELEASE_VERSION}"
       exit 1
@@ -93,7 +78,7 @@ elif [[ -z "${MS_COMMIT}" ]]; then
   if [[ -z "${REFERENCE}" ]]; then
     echo "Error: The following tag can't be found: ${MS_TAG}"
     exit 1
-  elif [[ "${REFERENCE}" =~ ^([[:alnum:]]+)[[:space:]]+refs\/tags\/([0-9]+\.[0-9]+\.[0-5])$ ]]; then
+  elif [[ "${REFERENCE}" =~ ^([[:alnum:]]+)[[:space:]]+refs\/tags\/([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
     MS_COMMIT="${BASH_REMATCH[1]}"
     MS_TAG="${BASH_REMATCH[2]}"
   else
