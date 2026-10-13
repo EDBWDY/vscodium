@@ -3,17 +3,17 @@ diff --git a/.npmrc b/.npmrc
 +++ b/.npmrc
 @@ -1,3 +1,3 @@
  disturl="https://electronjs.org/headers"
--target="42.10.0"
+-target="43.7.7"
 +target="42.3.2"
- ms_build_id="15109253"
+ ms_build_id="15553055"
 diff --git a/cgmanifest.json b/cgmanifest.json
 --- a/cgmanifest.json
 +++ b/cgmanifest.json
 @@ -530,5 +530,5 @@
  					"name": "electron",
  					"repositoryUrl": "https://github.com/electron/electron",
--					"commitHash": "9f0109679540320c5dc5b7bef0aa94733058e8c2",
--					"tag": "42.10.0"
+-					"commitHash": "ddb762f50fbd70384d0385302697e60ada549024",
+-					"tag": "43.7.7"
 +					"commitHash": "de6574da4eec1c81cd3bac991a10cbb87afcb4db",
 +					"tag": "42.3.2"
  				}
