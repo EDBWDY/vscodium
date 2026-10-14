@@ -74,17 +74,17 @@ function visit(dir) {
         kept++;
       } else {
         if (/win32/i.test(filename)) {
-          throw new Error(\`Invalid Windows native Copilot module: \${filename}\`);
+          throw new Error('Invalid Windows native Copilot module: ' + filename);
         }
         fs.rmSync(filename);
-        console.log(\`Excluded non-Windows Copilot native module: \${filename}\`);
+        console.log('Excluded non-Windows Copilot native module: ' + filename);
         removed++;
       }
     }
   }
 }
 visit(root);
-console.log(\`Copilot native modules for Windows: kept=\${kept}, excluded non-PE=\${removed}\`);
+console.log('Copilot native modules for Windows: kept=' + kept + ', excluded non-PE=' + removed);
 NODE
 
 
