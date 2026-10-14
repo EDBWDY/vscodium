@@ -37,13 +37,15 @@ if [[ "${SHOULD_BUILD}" == "yes" ]]; then
     # stream, but the built-in desktop extension imports it at runtime.  The
     # Electron 42 Windows workflow packages directly from .build here, so the
     # SDK must be restored in this branch before min-ci consumes that tree.
-    copilot_sdk_source='extensions/copilot/node_modules/@github/copilot/sdk'
-    copilot_sdk_output='.build/extensions/copilot/node_modules/@github/copilot/sdk'
-    test -f "${copilot_sdk_source}/index.js"
+    copilot_sdk_source='extensions/copilot/node_modules/@github/copilot'
+    copilot_sdk_output='.build/extensions/copilot/node_modules/@github/copilot'
+    test -f "${copilot_sdk_source}/sdk/index.js"
+    test -s "${copilot_sdk_source}/package.json"
     mkdir -p "$(dirname "${copilot_sdk_output}")"
     rm -rf "${copilot_sdk_output}"
     cp -a "${copilot_sdk_source}" "${copilot_sdk_output}"
-    test -f "${copilot_sdk_output}/index.js"
+    test -f "${copilot_sdk_output}/sdk/index.js"
+    node -e 'const p = require("./.build/extensions/copilot/node_modules/@github/copilot/package.json"); if (!p.version) process.exit(1)'
 
     npm run copy-policy-dto --prefix build
     node build/lib/policies/policyGenerator.ts build/lib/policies/policyData.jsonc win32
