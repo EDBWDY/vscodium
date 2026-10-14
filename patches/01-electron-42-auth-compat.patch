@@ -14,7 +14,7 @@ diff --git a/src/vs/platform/native/electron-main/auth.ts b/src/vs/platform/nati
 diff --git a/src/mainImpl.ts b/src/mainImpl.ts
 --- a/src/mainImpl.ts
 +++ b/src/mainImpl.ts
-@@ -69,12 +69,13 @@
+@@ -69,10 +69,11 @@
  
  if (process.platform === 'linux') {
  	const snapName = process.env['SNAP_INSTANCE_NAME'];
