@@ -47,6 +47,47 @@ if [[ "${SHOULD_BUILD}" == "yes" ]]; then
     test -f "${copilot_sdk_output}/sdk/index.js"
     node -e 'const p = require("./.build/extensions/copilot/node_modules/@github/copilot/package.json"); if (!p.version) process.exit(1)'
 
+    # The copied extension package contains Mach-O/ELF native modules from
+    # other platforms. VS Code's patchWin32DependenciesTask runs rcedit on
+    # every packaged *.node, which requires a Windows PE (MZ) file.
+    # Keep all Windows natives, and exclude only unusable non-PE modules.
+    node - "$copilot_sdk_output" <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+const root = process.argv[2];
+let removed = 0;
+let kept = 0;
+function visit(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const filename = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      visit(filename);
+    } else if (entry.isFile() && entry.name.endsWith('.node')) {
+      const fd = fs.openSync(filename, 'r');
+      const signature = Buffer.alloc(2);
+      try {
+        fs.readSync(fd, signature, 0, 2, 0);
+      } finally {
+        fs.closeSync(fd);
+      }
+      if (signature.toString('ascii') === 'MZ') {
+        kept++;
+      } else {
+        if (/win32/i.test(filename)) {
+          throw new Error(\`Invalid Windows native Copilot module: \${filename}\`);
+        }
+        fs.rmSync(filename);
+        console.log(\`Excluded non-Windows Copilot native module: \${filename}\`);
+        removed++;
+      }
+    }
+  }
+}
+visit(root);
+console.log(\`Copilot native modules for Windows: kept=\${kept}, excluded non-PE=\${removed}\`);
+NODE
+
+
     npm run copy-policy-dto --prefix build
     node build/lib/policies/policyGenerator.ts build/lib/policies/policyData.jsonc win32
     npm run gulp "vscode-win32-${VSCODE_ARCH}-min-ci"
