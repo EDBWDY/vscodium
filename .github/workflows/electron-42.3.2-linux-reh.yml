@@ -242,12 +242,15 @@ jobs:
           # generic extension stream. The built-in Copilot extension imports it
           # directly at runtime, so restore the verified source copy into the
           # REH staging tree before it is archived for the packaging job.
-          sdk_source='extensions/copilot/node_modules/@github/copilot/sdk/index.js'
-          sdk_output='.build/extensions/copilot/node_modules/@github/copilot/sdk/index.js'
-          test -f "$sdk_source"
+          sdk_source='extensions/copilot/node_modules/@github/copilot'
+          sdk_output='.build/extensions/copilot/node_modules/@github/copilot'
+          test -f "$sdk_source/sdk/index.js"
+          test -s "$sdk_source/package.json"
           mkdir -p "$(dirname "$sdk_output")"
+          rm -rf "$sdk_output"
           cp -a "$sdk_source" "$sdk_output"
-          test -f "$sdk_output"
+          test -f "$sdk_output/sdk/index.js"
+          node -e 'const p = require("./.build/extensions/copilot/node_modules/@github/copilot/package.json"); if (!p.version) process.exit(1)'
 
       - name: Core CI - Compile extension media
         env:
